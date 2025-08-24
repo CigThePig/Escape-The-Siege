@@ -87,5 +87,6 @@ btnHelp.addEventListener('click',()=>{
 
 });
 
-function loop(ts){animT=ts;draw();raf(loop)}resetState();raf(loop);
+  function loop(ts){animT=ts;draw();requestAnimationFrame(loop)}resetState();requestAnimationFrame(loop);
+
 })();
