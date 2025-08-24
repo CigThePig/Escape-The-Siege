@@ -1,0 +1,8 @@
+{
+  "name": "escape-the-siege",
+  "version": "1.0.0",
+  "description": "Development test configuration for Escape The Siege",
+  "scripts": {
+    "test": "node --test"
+  }
+}
