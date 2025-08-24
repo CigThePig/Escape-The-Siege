@@ -1,70 +1,4 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Escape the Siege — Phase 2.9.3 (hotfix)</title>
-<style>
-:root{--bg:#0b0f1e;--panel:#151a2e;--text:#e8ecff;--muted:#9aa4c7;--accent:#67d4ff;--danger:#ff6b6b;--good:#7dff9d;--warn:#ffd166}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Apple Color Emoji','Segoe UI Emoji';background:radial-gradient(60vmax 60vmax at 50% -10%,#1b1f36,#0b0d18 60%,#070813 100%);color:var(--text);display:flex;min-height:100vh;align-items:stretch;justify-content:center}
-.wrap{display:grid;grid-template-columns:1fr 360px;gap:16px;width:min(1300px,100%);padding:12px}@media(max-width:900px){.wrap{grid-template-columns:1fr}}
-.panel{background:linear-gradient(180deg,#1a1f36,#121528);border:1px solid rgba(255,255,255,.06);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);padding:12px}
-h1{font-size:18px;margin:0 0 6px;font-weight:700;letter-spacing:.4px}
-.hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;align-items:center;margin-bottom:8px}
-.stat{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
-.stat.hp.flash{background:rgba(255,107,107,.18);color:#ffd1d1}.stat .label{font-size:12px;color:var(--muted);line-height:1}.stat .value{font-weight:700;font-size:16px}
-#gameCanvas{width:100%;aspect-ratio:1/1;display:block;border-radius:12px;background:#0e1020;outline:1px solid rgba(255,255,255,.06);touch-action:manipulation}
-.right{display:grid;grid-template-rows:auto auto 1fr auto;gap:12px}
-.btn{cursor:pointer;user-select:none;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,#283053,#1b2142);color:var(--text);font-weight:700;letter-spacing:.2px;text-align:center}
-.btn:active{transform:translateY(1px) scale(.99)}.btn.primary{background:linear-gradient(180deg,#2b6fff,#184fe8);border-color:#2b6fff}.btn.ghost{background:rgba(255,255,255,.04)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.toolbtn{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);font-weight:700;text-align:left}
-.toolbtn.active{outline:2px solid var(--accent);background:rgba(103,212,255,.08)}.tileLegend{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--muted)}
-.legendItem{display:grid;grid-template-columns:16px 1fr;gap:6px;align-items:center}.swatch{width:16px;height:16px;border-radius:4px}
-.log{height:120px;overflow:auto;padding:8px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);font-size:12px;line-height:1.3}.log p{margin:0 0 6px;color:var(--muted)}
-.mobileControls{display:grid;gap:8px;margin-top:10px;user-select:none}.dpad{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:6px;place-items:stretch}
-.dpad .padbtn{min-height:54px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,#22294b,#171d3a);color:var(--text);font-weight:800;font-size:16px;display:grid;place-items:center}
-.pad-empty{background:transparent;border:none}.footer{color:var(--muted);font-size:12px;text-align:center}.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
-.placeMode{outline:2px solid var(--accent)}.dashArmed{filter:drop-shadow(0 0 6px #67d4ff)}
-</style></head><body>
-<div class="wrap"><div class="panel">
-<h1>Escape the Siege — <span class="pill">Phase 2.9.3</span> <small style="opacity:.65">hotfix</small></h1>
-<div class="hud">
-<div class="stat hp" id="hpStat"><div class="label">HP</div><div id="hpVal" class="value">10</div></div>
-<div class="stat"><div class="label">Mana</div><div id="manaVal" class="value">10</div></div>
-<div class="stat"><div class="label">Turn</div><div id="turnVal" class="value">0</div></div>
-<div class="stat"><div class="label">Enemies</div><div id="enemyVal" class="value">0</div></div>
-<div class="stat"><div class="label">Next Spawn</div><div id="spawnVal" class="value">4</div></div>
-<div class="stat"><div class="label">Dash</div><div id="dashVal" class="value">Ready</div></div>
-</div>
-<canvas id="gameCanvas" width="900" height="900" aria-label="Game board" role="img"></canvas>
-<div class="mobileControls">
-<div class="tools">
-<button id="toolArrow" class="toolbtn">Arrow Trap <span style="float:right;">9</span></button>
-<button id="toolRune" class="toolbtn">Magic Rune (Slow) <span style="float:right;">10</span></button>
-<button id="toolFire" class="toolbtn">Fire Totem (AoE) <span style="float:right;">16</span></button>
-<button id="toolSpike" class="toolbtn">Spike Floor <span style="float:right;">6</span></button>
-</div>
-<div class="row"><button id="btnPlace" class="btn">Place Selected</button><button id="btnDash" class="btn ghost">Dash (arm)</button></div>
-<div class="row"><button id="btnNew" class="btn primary">New Game</button><button id="btnHelp" class="btn">Help</button></div>
-<div class="dpad" aria-label="Touch movement controls">
-<div class="pad-empty"></div><button class="padbtn" data-dir="up">▲</button><div class="pad-empty"></div>
-<button class="padbtn" data-dir="left">◀</button><div class="pad-empty"></div><button class="padbtn" data-dir="right">▶</button>
-<div class="pad-empty"></div><button class="padbtn" data-dir="down">▼</button><div class="pad-empty"></div>
-</div></div></div>
-<div class="panel right"><div class="palette"><div class="tileLegend">
-<div class="legendItem"><div class="swatch" style="background:#0a0e1a;border:1px solid #3b486b"></div><div>Wall</div></div>
-<div class="legendItem"><div class="swatch" style="background:#263667"></div><div>Floor (unvisited)</div></div>
-<div class="legendItem"><div class="swatch" style="background:#3750a1"></div><div>Floor (visited)</div></div>
-<div class="legendItem"><div class="swatch" style="background:#1a6e2d"></div><div>Entrance</div></div>
-<div class="legendItem"><div class="swatch" style="background:#22c55e"></div><div>Exit</div></div>
-<div class="legendItem"><div class="swatch" style="background:#8b5cf6"></div><div>Spawner</div></div>
-<div class="legendItem"><div class="swatch" style="background:#eab308"></div><div>Chest</div></div>
-<div class="legendItem"><div class="swatch" style="background:#ef4444"></div><div>Goblin</div></div>
-<div class="legendItem"><div class="swatch" style="background:#f59e0b"></div><div>Archer</div></div>
-<div class="legendItem"><div class="swatch" style="background:#a78bfa"></div><div>Wraith</div></div>
-</div></div>
-<div class="log" id="log"></div><div class="footer">v2.9.3 hotfix: AI stall fixed, early win check, visible chests, cooldown clamp, no enemy swaps, safer turn handling.</div>
-</div></div>
-<script>(() => {
+(() => {
 
 const GRID_W=30,GRID_H=30;const PASSIVE_MANA=1,START_MANA=10,START_HP=10;
 const CHEST_MANA=8;const COSTS={arrow:9,rune:10,fire:16,spike:6};
@@ -148,4 +82,4 @@ function checkWinLose(){if(state.player.x===state.map.exit.x&&state.player.y===s
 function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:spawnCooldown(0),player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.3: AI stall fixed; early win check; chests more visible; cooldown clamp; no enemy swaps; safer turn handling.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/GRID_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateHUD()}
 btnNew.addEventListener('click',resetState);btnHelp.addEventListener('click',()=>{alert('2.9.3 hotfix:\n• Fixed AI (removed stray rebuildFlow override).\n• Early win check after movement.\n• Chests are brighter and filled.\n• Archer cooldown clamped.\n• Prevented enemy swap moves.\n• Enemy phase wrapped in try/catch.')});
 function loop(ts){animT=ts;draw();requestAnimationFrame(loop)}resetState();requestAnimationFrame(loop);
-})();</script></body></html>
+})();
