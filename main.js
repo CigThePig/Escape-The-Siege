@@ -11,7 +11,7 @@ function baseSpawnCooldown(t){return Math.max(2,4-Math.floor(t/20))}function bas
 const ENEMY_CAP=18,CHESTS_PER_RUN=5,SPAWN_MIN_RADIUS=6;
 const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa'};
 let tileSize=0,tilePad=1,animT=0;let terrainCanvas=null,terrainCtx=null,terrainValid=false;let state;
-const canvas=document.getElementById('gameCanvas');const ctx=canvas.getContext('2d',{alpha:false});
+const canvas=document.getElementById('gameCanvas');const ctx=canvas.getContext('2d',{alpha:false})||canvas.getContext('2d');const raf=window.requestAnimationFrame||(cb=>setTimeout(()=>cb(Date.now()),16));
 const hud={hp:document.getElementById('hpVal'),hpStat:document.getElementById('hpStat'),mana:document.getElementById('manaVal'),turn:document.getElementById('turnVal'),enemy:document.getElementById('enemyVal'),spawn:document.getElementById('spawnVal'),dash:document.getElementById('dashVal'),log:document.getElementById('log')};
 const btnNew=document.getElementById('btnNew'),btnHelp=document.getElementById('btnHelp'),btnPlace=document.getElementById('btnPlace'),btnDash=document.getElementById('btnDash');
 const tools={arrow:document.getElementById('toolArrow'),rune:document.getElementById('toolRune'),fire:document.getElementById('toolFire'),spike:document.getElementById('toolSpike')};
@@ -32,7 +32,7 @@ function logMsg(m){const p=document.createElement('p');p.textContent=m;hud.log.a
 function clearLog(){hud.log.innerHTML=""}function rndShuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 function updateHUD(){hud.hp.textContent=state.hp|0;hud.mana.textContent=state.mana|0;hud.turn.textContent=state.turn|0;hud.enemy.textContent=state.enemies.length|0;hud.spawn.textContent=state.nextSpawn|0;hud.dash.textContent=state.dashCD>0?state.dashCD:'Ready';for(const k in tools)tools[k].classList.toggle('active',state.selectedTool===k);btnPlace.classList.toggle('placeMode',state.placeMode===true);btnDash.classList.toggle('dashArmed',state.dashArmed===true)}
 function lineOfSightRowCol(a,b){if(a.x===b.x){const x=a.x;const y1=Math.min(a.y,b.y)+1,y2=Math.max(a.y,b.y);for(let y=y1;y<y2;y++)if(isWall(x,y))return false;return true}else if(a.y===b.y){const y=a.y;const x1=Math.min(a.x,b.x)+1,x2=Math.max(a.x,b.x);for(let x=x1;x<x2;x++)if(isWall(x,y))return false;return true}return false}
-function ensureOffscreen(){if(!terrainCanvas){terrainCanvas=document.createElement('canvas');terrainCtx=terrainCanvas.getContext('2d',{alpha:false})}const rect=canvas.getBoundingClientRect();terrainCanvas.width=Math.floor(rect.width);terrainCanvas.height=Math.floor(rect.height);terrainCtx.setTransform(1,0,0,1,0,0);terrainValid=false}
+function ensureOffscreen(){if(!terrainCanvas){terrainCanvas=document.createElement('canvas');terrainCtx=terrainCanvas.getContext('2d',{alpha:false})||terrainCanvas.getContext('2d')}const rect=canvas.getBoundingClientRect();terrainCanvas.width=Math.floor(rect.width);terrainCanvas.height=Math.floor(rect.height);terrainCtx.setTransform(1,0,0,1,0,0);terrainValid=false}
 function drawWallTileTo(tctx,x,y){const {sx,sy}=tileToScreen(x,y);tctx.fillStyle=COLORS.wall;tctx.fillRect(sx,sy,tileSize,tileSize);tctx.strokeStyle=COLORS.wallEdge;tctx.lineWidth=Math.max(1,tileSize*.06);tctx.strokeRect(sx+.5,sy+.5,tileSize-1,tileSize-1);tctx.save();tctx.beginPath();tctx.rect(sx+1,sy+1,tileSize-2,tileSize-2);tctx.clip();tctx.strokeStyle='rgba(255,255,255,.06)';tctx.lineWidth=Math.max(1,tileSize*.05);const step=Math.max(4,tileSize/4);for(let k=-tileSize;k<tileSize*2;k+=step){tctx.beginPath();tctx.moveTo(sx+k,sy);tctx.lineTo(sx,sy+k);tctx.stroke()}tctx.restore()}
 function drawTerrainAll(){const rect=canvas.getBoundingClientRect();terrainCtx.clearRect(0,0,rect.width,rect.height);for(let y=0;y<GRID_H;y++)for(let x=0;x<GRID_W;x++){if(isWall(x,y))drawWallTileTo(terrainCtx,x,y);else{const {sx,sy}=tileToScreen(x,y);terrainCtx.fillStyle=COLORS.floor;terrainCtx.fillRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2)}}drawOutlineRectTo(terrainCtx,state.map.start.x,state.map.start.y,COLORS.start,.35);drawOutlineRectTo(terrainCtx,state.map.exit.x,state.map.exit.y,COLORS.exit,.35);for(const s of state.map.spawners)drawOutlineRectTo(terrainCtx,s.x,s.y,COLORS.spawner,.35);for(const c of state.map.chests)if(!c.opened){drawOutlineRectTo(terrainCtx,c.x,c.y,COLORS.chest,.45);const {sx,sy}=tileToScreen(c.x,c.y);const s2=Math.max(4,tileSize*.35);terrainCtx.fillStyle=COLORS.chest;terrainCtx.fillRect(sx+(tileSize-s2)/2,sy+(tileSize-s2)/2,s2,s2)}terrainValid=true}
 function drawOutlineRectTo(tctx,x,y,color,alpha=.28){const {sx,sy}=tileToScreen(x,y);tctx.save();tctx.globalAlpha=alpha;tctx.strokeStyle=color;tctx.setLineDash([4,3]);tctx.lineWidth=Math.max(1,tileSize*.06);tctx.strokeRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2);tctx.restore()}
@@ -87,8 +87,5 @@ btnHelp.addEventListener('click',()=>{
 
 });
 
-main
-  
-  
-function loop(ts){animT=ts;draw();requestAnimationFrame(loop)}resetState();requestAnimationFrame(loop);
+function loop(ts){animT=ts;draw();raf(loop)}resetState();raf(loop);
 })();
