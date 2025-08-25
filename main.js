@@ -2,7 +2,7 @@
 
 const GRID_W=30,GRID_H=30;const PASSIVE_MANA=1,START_MANA=10,START_HP=10;
 const CHEST_MANA=8;const COSTS={arrow:9,rune:10,fire:16,spike:6};
-const TRAP_RANGE=4,TRAP_DMG=2;const RUNE_RADIUS=1,FIRE_DMG=3,FIRE_RADIUS=4,SPIKE_DMG=8;const PLACE_RADIUS=4,PLACE_ZOOM=1.4;
+const TRAP_RANGE=4,TRAP_DMG=2;const RUNE_RADIUS=1,FIRE_DMG=3,FIRE_RADIUS=3,SPIKE_DMG=8;const PLACE_RADIUS=4,PLACE_ZOOM=1.4;
 const ARROW_AMMO=5;const BURN_TURNS=2,BURN_DMG=1;const RUNE_SLOW_TURNS=2;
 const DASH_CD=8,DASH_COST=3;
 const DENSITY_TILE_WEIGHT=.5,DENSITY_NEIGHBOR_WEIGHT=.25,PATIENCE_PROB=.2,PATROL_RADIUS=12;
@@ -44,7 +44,69 @@ function outlineRangeTiles(cx,cy,r,color){for(let y=cy-r;y<=cy+r;y++){for(let x=
 function highlightPlacementArea(){for(let y=state.player.y-PLACE_RADIUS;y<=state.player.y+PLACE_RADIUS;y++){for(let x=state.player.x-PLACE_RADIUS;x<=state.player.x+PLACE_RADIUS;x++){if(!inBounds(x,y))continue;const check=isValidPlacement(x,y);if(check.ok)drawOutlineRect(x,y,COLORS.player,.25)}}}
 function addFX(kind,x,y,life=18){state.fx.push({kind,x,y,life,max:life})}
 function addProjectileFX(kind,sx,sy,tx,ty,color,life=12){state.fx.push({kind,sx,sy,tx,ty,color,life,max:life})}
-function drawEffects(){const next=[];for(let i=0;i<state.fx.length;i++){const fx=state.fx[i];fx.life--;if(fx.life<=0)continue;const {sx,sy}=tileToScreen(fx.x,fx.y);ctx.save();if(fx.kind==='hit'){ctx.globalAlpha=fx.life/fx.max;ctx.strokeStyle='#e8ecff';ctx.lineWidth=Math.max(1,tileSize*.06);ctx.beginPath();ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.3*(1+(fx.max-fx.life)/fx.max),0,Math.PI*2);ctx.stroke()}else if(fx.kind==='slow'){ctx.globalAlpha=.5*(fx.life/fx.max);ctx.strokeStyle='#06b6d4';ctx.lineWidth=2;ctx.strokeRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2)}else if(fx.kind==='fire'){ctx.globalAlpha=.5*(fx.life/fx.max);ctx.fillStyle='rgba(239,68,68,.25)';ctx.beginPath();ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.45,0,Math.PI*2);ctx.fill()}else if(fx.kind==='projectile'){const p=1-fx.life/fx.max;const {sx:asx,sy:asy}=tileToScreen(fx.sx,fx.sy);const {sx:bsx,sy:bsy}=tileToScreen(fx.tx,fx.ty);const x=asx+(bsx-asx)*p;const y=asy+(bsy-asy)*p;ctx.globalAlpha=1;ctx.strokeStyle=fx.color||'#fff';ctx.lineWidth=Math.max(2,tileSize*.15);ctx.beginPath();ctx.moveTo(x+tileSize/2,y+tileSize/2);ctx.lineTo(x+tileSize/2-(bsx-asx)*.2,y+tileSize/2-(bsy-asy)*.2);ctx.stroke()}else if(fx.kind==='slash'){ctx.globalAlpha=fx.life/fx.max;ctx.strokeStyle='#e8ecff';ctx.lineWidth=Math.max(2,tileSize*.1);ctx.beginPath();ctx.moveTo(sx+tilePad,sy+tilePad);ctx.lineTo(sx+tileSize-tilePad,sy+tileSize-tilePad);ctx.moveTo(sx+tilePad,sy+tileSize-tilePad);ctx.lineTo(sx+tileSize-tilePad,sy+tilePad);ctx.stroke()}ctx.restore();next.push(fx)}state.fx=next}
+function drawEffects(){
+    const next=[];
+    for(let i=0;i<state.fx.length;i++){
+        const fx=state.fx[i];
+        fx.life--;
+        if(fx.life<=0)continue;
+        const {sx,sy}=tileToScreen(fx.x,fx.y);
+        ctx.save();
+        if(fx.kind==='hit'){
+            ctx.globalAlpha=fx.life/fx.max;
+            ctx.strokeStyle='#e8ecff';
+            ctx.lineWidth=Math.max(1,tileSize*.06);
+            ctx.beginPath();
+            ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.3*(1+(fx.max-fx.life)/fx.max),0,Math.PI*2);
+            ctx.stroke();
+        }else if(fx.kind==='slow'){
+            ctx.globalAlpha=.5*(fx.life/fx.max);
+            ctx.strokeStyle='#06b6d4';
+            ctx.lineWidth=2;
+            ctx.strokeRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2);
+        }else if(fx.kind==='fire'){
+            ctx.globalAlpha=.5*(fx.life/fx.max);
+            ctx.fillStyle='rgba(239,68,68,.25)';
+            ctx.beginPath();
+            ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.45,0,Math.PI*2);
+            ctx.fill();
+        }else if(fx.kind==='fireRange'){
+            const a=.3*(fx.life/fx.max);
+            for(let y=fx.y-fx.r;y<=fx.y+fx.r;y++){
+                for(let x=fx.x-fx.r;x<=fx.x+fx.r;x++){
+                    if(!inBounds(x,y))continue;
+                    if(Math.abs(fx.x-x)+Math.abs(fx.y-y)<=fx.r)drawOutlineRect(x,y,COLORS.fire,a);
+                }
+            }
+        }else if(fx.kind==='projectile'){
+            const p=1-fx.life/fx.max;
+            const {sx:asx,sy:asy}=tileToScreen(fx.sx,fx.sy);
+            const {sx:bsx,sy:bsy}=tileToScreen(fx.tx,fx.ty);
+            const x=asx+(bsx-asx)*p;
+            const y=asy+(bsy-asy)*p;
+            ctx.globalAlpha=1;
+            ctx.strokeStyle=fx.color||'#fff';
+            ctx.lineWidth=Math.max(2,tileSize*.15);
+            ctx.beginPath();
+            ctx.moveTo(x+tileSize/2,y+tileSize/2);
+            ctx.lineTo(x+tileSize/2-(bsx-asx)*.2,y+tileSize/2-(bsy-asy)*.2);
+            ctx.stroke();
+        }else if(fx.kind==='slash'){
+            ctx.globalAlpha=fx.life/fx.max;
+            ctx.strokeStyle='#e8ecff';
+            ctx.lineWidth=Math.max(2,tileSize*.1);
+            ctx.beginPath();
+            ctx.moveTo(sx+tilePad,sy+tilePad);
+            ctx.lineTo(sx+tileSize-tilePad,sy+tileSize-tilePad);
+            ctx.moveTo(sx+tilePad,sy+tileSize-tilePad);
+            ctx.lineTo(sx+tileSize-tilePad,sy+tilePad);
+            ctx.stroke();
+        }
+        ctx.restore();
+        next.push(fx);
+    }
+    state.fx=next
+}
 
 function drawPlayer(){const {sx,sy}=tileToScreen(state.player.x,state.player.y);const bob=Math.sin(animT/200)*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;ctx.fillStyle=COLORS.player;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeOffset=tileSize*.15,eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.arc(eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.fill();ctx.restore()}
 function drawEnemy(e){const {sx,sy}=tileToScreen(e.x,e.y);const bob=Math.sin(animT/200+(e.x+e.y))*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;const col=e.kind==='goblin'?COLORS.enemyGoblin:e.kind==='archer'?COLORS.enemyArcher:COLORS.enemyWraith;ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.arc(r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.fill();if(e.kind==='archer'){ctx.strokeStyle='#000';ctx.lineWidth=Math.max(2,tileSize*.07);ctx.beginPath();ctx.moveTo(-r*.6,0);ctx.lineTo(r*.6,0);ctx.stroke()}if(e.kind==='wraith'){ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.moveTo(-r,r*.2);ctx.lineTo(0,r);ctx.lineTo(r,r*.2);ctx.closePath();ctx.fill()}ctx.restore();const maxhp=e.maxhp||(e.kind==='goblin'?ENEMY.goblin.hp:e.kind==='archer'?ENEMY.archer.hp:ENEMY.wraith.hp);drawHPBar(e.x,e.y,Math.max(0,e.hp)/maxhp)}
@@ -65,7 +127,7 @@ function isValidPlacement(x,y){if(!inBounds(x,y))return{ok:false,reason:'out of 
 function flashHP(){hud.hpStat.classList.add('flash');setTimeout(()=>hud.hpStat.classList.remove('flash'),250)}
 function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();checkWinLose();updateHUD()}
 function rewardFor(k){return k==='goblin'?ENEMY.goblin.reward:k==='archer'?ENEMY.archer.reward:ENEMY.wraith.reward}
-function towersAct(){if(!state.towers.length)return;const survivors=[];for(const t of state.towers){if(t.type==='arrow'){let best=null,bestD=1e9;for(const e of state.enemies){const d=Math.abs(t.x-e.x)+Math.abs(t.y-e.y);if(d<=TRAP_RANGE&&(t.x===e.x||t.y===e.y)&&lineOfSightRowCol(t,e)){if(d<bestD){best=e;bestD=d}}}let ammo=(t.ammo===undefined?ARROW_AMMO:t.ammo);if(best&&ammo>0){best.hp-=TRAP_DMG;addProjectileFX('projectile',t.x,t.y,best.x,best.y,COLORS.arrow,10);addFX('hit',best.x,best.y);ammo-=1}if(ammo>0){t.ammo=ammo;survivors.push(t)}else terrainValid=false}else if(t.type==='rune'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=RUNE_RADIUS){e.slowTurns=Math.max(e.slowTurns||0,RUNE_SLOW_TURNS);any=true}if(any)addFX('slow',t.x,t.y,14);survivors.push(t)}else if(t.type==='fire'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=FIRE_RADIUS){e.hp-=FIRE_DMG;e.burn=Math.max(e.burn||0,BURN_TURNS);any=true;addFX('fire',e.x,e.y,12)}survivors.push(t)}else if(t.type==='spike'){survivors.push(t)}}let add=0;const alive=[];for(const e of state.enemies){if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0)logMsg(`Enemies defeated (+${add} mana).`);state.mana+=add;state.enemies=alive;state.towers=survivors}
+function towersAct(){if(!state.towers.length)return;const survivors=[];for(const t of state.towers){if(t.type==='arrow'){let best=null,bestD=1e9;for(const e of state.enemies){const d=Math.abs(t.x-e.x)+Math.abs(t.y-e.y);if(d<=TRAP_RANGE&&(t.x===e.x||t.y===e.y)&&lineOfSightRowCol(t,e)){if(d<bestD){best=e;bestD=d}}}let ammo=(t.ammo===undefined?ARROW_AMMO:t.ammo);if(best&&ammo>0){best.hp-=TRAP_DMG;addProjectileFX('projectile',t.x,t.y,best.x,best.y,COLORS.arrow,10);addFX('hit',best.x,best.y);ammo-=1}if(ammo>0){t.ammo=ammo;survivors.push(t)}else terrainValid=false}else if(t.type==='rune'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=RUNE_RADIUS){e.slowTurns=Math.max(e.slowTurns||0,RUNE_SLOW_TURNS);any=true}if(any)addFX('slow',t.x,t.y,14);survivors.push(t)}else if(t.type==='fire'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=FIRE_RADIUS){e.hp-=FIRE_DMG;e.burn=Math.max(e.burn||0,BURN_TURNS);any=true;addFX('fire',e.x,e.y,12)}if(any)state.fx.push({kind:'fireRange',x:t.x,y:t.y,r:FIRE_RADIUS,life:12,max:12});survivors.push(t)}else if(t.type==='spike'){survivors.push(t)}}let add=0;const alive=[];for(const e of state.enemies){if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0)logMsg(`Enemies defeated (+${add} mana).`);state.mana+=add;state.enemies=alive;state.towers=survivors}
 function enemiesPreEffects(){let add=0;const alive=[];for(const e of state.enemies){if(e.burn&&e.burn>0){e.hp-=BURN_DMG;e.burn--;addFX('fire',e.x,e.y,10)}if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0){state.mana+=add;logMsg(`Burned enemies defeated (+${add} mana).`)}state.enemies=alive}
 function buildDensityField(){const f=Array.from({length:GRID_H},()=>Array(GRID_W).fill(0));for(const e of state.enemies)f[e.y][e.x]+=1;return f}
 function densityScore(field,x,y){const self=field[y][x];let adj=0;for(const d of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+d[0],ny=y+d[1];if(inBounds(nx,ny))adj+=field[ny][nx]}return DENSITY_TILE_WEIGHT*self+DENSITY_NEIGHBOR_WEIGHT*adj}
@@ -81,8 +143,8 @@ function spawnCooldown(t){return baseSpawnCooldown(t)}function spawnCount(t,prog
 function pickSpawnPos(){const minR=SPAWN_MIN_RADIUS;const ring=state.map.spawners.filter(s=>{const d=Math.abs(s.x-state.player.x)+Math.abs(s.y-state.player.y);return d>=Math.max(8,minR)&&d<=18});const behindRing=ring.filter(s=>s.x<=state.player.x-2);const pool1=behindRing.length?behindRing:(ring.length?ring:state.map.spawners);const candidates=pool1.filter(p=>{const d=Math.abs(p.x-state.player.x)+Math.abs(p.y-state.player.y);return d>=minR&&!(p.x===state.player.x&&p.y===state.player.y)&&!state.enemies.some(e=>e.x===p.x&&e.y===p.y)});if(candidates.length)return candidates[(Math.random()*candidates.length)|0];let best=null,bestD=-1;for(const p of state.map.spawners){const d=Math.abs(p.x-state.player.x)+Math.abs(p.y-state.player.y);if(d>=minR&&d>bestD){best=p;bestD=d}}return best}
 function handleSpawns(){const nearCount=state.enemies.reduce((n,e)=>n+(Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y)<=4?1:0),0);if(nearCount>=5){state.nextSpawn=Math.max(state.nextSpawn,2);return}state.nextSpawn-=1;if(state.nextSpawn<=0){const free=ENEMY_CAP-state.enemies.length;if(free>0){const progress=state.player.x/(GRID_W-1);const desired=Math.min(spawnCount(state.turn,progress),free);let count=0;for(let i=0;i<desired;i++){const pos=pickSpawnPos();if(!pos)break;const roll=Math.random();let kind='goblin';if(roll>.8)kind='wraith';else if(roll>.55)kind='archer';const base=ENEMY[kind];state.enemies.push({x:pos.x,y:pos.y,hp:base.hp,maxhp:base.hp,kind,cooldown:ENEMY.archer.cd,idle:(nearCount>=5?1:0)});count++}if(count>0)logMsg(count===1?'An enemy emerged from a portal!':`${count} enemies emerged from portals!`)}state.nextSpawn=spawnCooldown(state.turn)}}
 function checkWinLose(){if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y){state.won=true;logMsg('You reached the exit. Victory!')}if(state.hp<=0){state.lost=true;logMsg('You have fallen...')}}
+function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/GRID_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateHUD()}
 
-function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.6: new trap icons, ammo meters, and fire totem range increased.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/GRID_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateHUD()}
 
 btnNew.addEventListener('click',resetState);
 
