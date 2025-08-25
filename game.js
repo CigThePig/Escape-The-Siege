@@ -88,6 +88,20 @@ function drawEffects(){
                     if(Math.abs(fx.x-x)+Math.abs(fx.y-y)<=fx.r)drawOutlineRect(x,y,COLORS.fire,a);
                 }
             }
+        }else if(fx.kind==='saboteurExplosion'){
+            ctx.globalAlpha=.5*(fx.life/fx.max);
+            ctx.fillStyle='rgba(168,85,247,.25)';
+            ctx.beginPath();
+            ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.45,0,Math.PI*2);
+            ctx.fill();
+        }else if(fx.kind==='saboteurRange'){
+            const a=.3*(fx.life/fx.max);
+            for(let y=fx.y-fx.r;y<=fx.y+fx.r;y++){
+                for(let x=fx.x-fx.r;x<=fx.x+fx.r;x++){
+                    if(!inBounds(x,y))continue;
+                    if(Math.abs(fx.x-x)+Math.abs(fx.y-y)<=fx.r)drawOutlineRect(x,y,COLORS.saboteurExplosion,a);
+                }
+            }
         }else if(fx.kind==='projectile'){
             const p=1-fx.life/fx.max;
             const {sx:asx,sy:asy}=tileToScreen(fx.sx,fx.sy);
@@ -257,8 +271,8 @@ function saboteurExplode(s){
         addFX('hit',state.player.x,state.player.y);
         logMsg(`Saboteur explosion hits you for ${SAB_EXP_DMG}.`);
     }
-    addFX('fire',s.x,s.y,12);
-    state.fx.push({kind:'fireRange',x:s.x,y:s.y,r:SAB_EXP_RADIUS,life:12,max:12});
+    addFX('saboteurExplosion',s.x,s.y,12);
+    state.fx.push({kind:'saboteurRange',x:s.x,y:s.y,r:SAB_EXP_RADIUS,life:12,max:12});
 }
 function enemiesAct(){
     const occupied=new Set([state.player.x+','+state.player.y]);
@@ -282,10 +296,11 @@ function enemiesAct(){
                 terrainValid=false;
                 logMsg('Saboteur detonated after destroying a trap!');
                 saboteurExplode(e);
-                e.hp=0;
-                acted=true;
+                occupied.delete(e.x+','+e.y);
+                add+=rewardFor(e.kind);
+                continue;
             }
-            if(e.hp>0)acted=enemyAttack(e);
+            acted=enemyAttack(e);
         }else if(e.kind==='hunter'){
             for(let s=0;s<2;s++){moveEnemy(e,occupied);if(enemyAttack(e)){acted=true;break;}}
             if(!acted)acted=enemyAttack(e);
