@@ -6,10 +6,17 @@ const TRAP_RANGE=4,TRAP_DMG=2;const RUNE_RADIUS=1,FIRE_DMG=3,FIRE_RADIUS=3,SPIKE
 const ARROW_AMMO=5;const BURN_TURNS=2,BURN_DMG=1;const RUNE_SLOW_TURNS=2;
 const DASH_CD=8,DASH_COST=3;
 const DENSITY_TILE_WEIGHT=.5,DENSITY_NEIGHBOR_WEIGHT=.25,PATIENCE_PROB=.2,PATROL_RADIUS=12;
-const ENEMY={goblin:{hp:3,touch:2,reward:1,speed:1},archer:{hp:4,touch:1,reward:2,speed:1,range:4,cd:3,dmg:2},wraith:{hp:6,touch:3,reward:4,speed:1,phaser:true}};
+const ENEMY={
+    goblin:{hp:3,touch:2,reward:1,speed:1},
+    archer:{hp:4,touch:1,reward:2,speed:1,range:4,cd:3,dmg:2},
+    wraith:{hp:6,touch:3,reward:4,speed:1,phaser:true},
+    brute:{hp:20,touch:10,reward:10,speed:1,boss:true},
+    saboteur:{hp:5,touch:0,reward:8,speed:1,boss:true},
+    hunter:{hp:3,touch:2,reward:6,speed:2,boss:true}
+};
 function baseSpawnCooldown(t){return Math.max(2,4-Math.floor(t/20))}function baseSpawnCount(t){return 1+Math.floor(t/15)}
 const ENEMY_CAP=18,CHESTS_PER_RUN=5,SPAWN_MIN_RADIUS=6;
-const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa'};
+const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa',enemyBrute:'#991b1b',enemySaboteur:'#f97316',enemyHunter:'#10b981'};
 let tileSize=0,tilePad=1,animT=0;let terrainCanvas=null,terrainCtx=null,terrainValid=false;let state;
 
 const canvas=document.getElementById('game');const ctx=canvas.getContext('2d',{alpha:false})||canvas.getContext('2d');const raf=window.requestAnimationFrame||(cb=>setTimeout(()=>cb(Date.now()),16));
@@ -27,7 +34,7 @@ function renderLegend(pairs){const cont=document.getElementById('legend-items');
 function setDashArmed(armed,cd){btnDash.disabled=cd>0;btnDash.textContent=armed?(cd>0?`Dash (cd: ${cd})`:'Dash (ready)'):'Arm Dash';}
 function updateHUD(st=state){hud.hp.textContent=st.hp|0;hud.turn.textContent=st.turn|0;hud.enemy.textContent=st.enemies.length|0;hud.spawn.textContent=st.nextSpawn|0;hud.dash.textContent=st.dashCD>0?st.dashCD:'Ready';setDashArmed(st.dashArmed,st.dashCD);setActiveTrap(st.selectedTool);updateMana(st.mana);}
 
-const LEGEND_DATA=[['Wall',COLORS.wall],['Floor',COLORS.floor],['Entrance',COLORS.start],['Exit',COLORS.exit],['Spawner',COLORS.spawner],['Chest',COLORS.chest],['Goblin',COLORS.enemyGoblin],['Archer',COLORS.enemyArcher],['Wraith',COLORS.enemyWraith]];
+const LEGEND_DATA=[['Wall',COLORS.wall],['Floor',COLORS.floor],['Entrance',COLORS.start],['Exit',COLORS.exit],['Spawner',COLORS.spawner],['Chest',COLORS.chest],['Goblin',COLORS.enemyGoblin],['Archer',COLORS.enemyArcher],['Wraith',COLORS.enemyWraith],['Brute',COLORS.enemyBrute],['Saboteur',COLORS.enemySaboteur],['Hunter',COLORS.enemyHunter]];
 
 function generateMaze(width,height){const w=(width%2===0)?width-1:width,h=(height%2===0)?height-1:height;const grid=Array.from({length:height},()=>Array(width).fill(1));function inBoundsCarve(x,y){return x>0&&x<w-1&&y>0&&y<h-1}const stack=[];let cx=1,cy=1;grid[cy][cx]=0;stack.push([cx,cy]);function neighbors(x,y){return[[x+2,y],[x-2,y],[x,y+2],[x,y-2]].filter(([nx,ny])=>inBoundsCarve(nx,ny)&&grid[ny][nx]===1)}while(stack.length){const [x,y]=stack[stack.length-1];const nbs=neighbors(x,y);if(!nbs.length){stack.pop();continue}const [nx,ny]=nbs[(Math.random()*nbs.length)|0];grid[ny][nx]=0;grid[y+(ny-y)/2][x+(nx-x)/2]=0;stack.push([nx,ny])}for(let y=1;y<height-1;y++){for(let x=1;x<width-1;x++){if(grid[y][x]===0&&Math.random()<.22){if(grid[y][x+1]===1)grid[y][x+1]=0;if(grid[y+1][x]===1)grid[y+1][x]=0}}}return grid}
 function carveRect(grid,x,y,w,h){for(let j=0;j<h;j++)for(let i=0;i<w;i++){const gx=x+i,gy=y+j;if(gx>0&&gy>0&&gx<GRID_W-1&&gy<GRID_H-1)grid[gy][gx]=0}}
@@ -124,7 +131,7 @@ function drawEffects(){
 }
 
 function drawPlayer(){const {sx,sy}=tileToScreen(state.player.x,state.player.y);const bob=Math.sin(animT/200)*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;ctx.fillStyle=COLORS.player;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeOffset=tileSize*.15,eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.arc(eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.fill();ctx.restore()}
-function drawEnemy(e){const {sx,sy}=tileToScreen(e.x,e.y);const bob=Math.sin(animT/200+(e.x+e.y))*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;const col=e.kind==='goblin'?COLORS.enemyGoblin:e.kind==='archer'?COLORS.enemyArcher:COLORS.enemyWraith;ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.arc(r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.fill();if(e.kind==='archer'){ctx.strokeStyle='#000';ctx.lineWidth=Math.max(2,tileSize*.07);ctx.beginPath();ctx.moveTo(-r*.6,0);ctx.lineTo(r*.6,0);ctx.stroke()}if(e.kind==='wraith'){ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.moveTo(-r,r*.2);ctx.lineTo(0,r);ctx.lineTo(r,r*.2);ctx.closePath();ctx.fill()}ctx.restore();const maxhp=e.maxhp||(e.kind==='goblin'?ENEMY.goblin.hp:e.kind==='archer'?ENEMY.archer.hp:ENEMY.wraith.hp);drawHPBar(e.x,e.y,Math.max(0,e.hp)/maxhp)}
+function drawEnemy(e){const {sx,sy}=tileToScreen(e.x,e.y);const bob=Math.sin(animT/200+(e.x+e.y))*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;let col;switch(e.kind){case'goblin':col=COLORS.enemyGoblin;break;case'archer':col=COLORS.enemyArcher;break;case'wraith':col=COLORS.enemyWraith;break;case'brute':col=COLORS.enemyBrute;break;case'saboteur':col=COLORS.enemySaboteur;break;case'hunter':col=COLORS.enemyHunter;break;default:col=COLORS.enemyWraith;}ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.arc(r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.fill();if(e.kind==='archer'){ctx.strokeStyle='#000';ctx.lineWidth=Math.max(2,tileSize*.07);ctx.beginPath();ctx.moveTo(-r*.6,0);ctx.lineTo(r*.6,0);ctx.stroke()}if(e.kind==='wraith'){ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.moveTo(-r,r*.2);ctx.lineTo(0,r);ctx.lineTo(r,r*.2);ctx.closePath();ctx.fill()}ctx.restore();const maxhp=e.maxhp||(ENEMY[e.kind]?ENEMY[e.kind].hp:ENEMY.wraith.hp);drawHPBar(e.x,e.y,Math.max(0,e.hp)/maxhp)}
 function draw(){const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/GRID_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();if(!terrainValid)drawTerrainAll();ctx.save();if(state.placeMode){const {sx:psx,sy:psy}=tileToScreen(state.player.x,state.player.y);ctx.translate(rect.width/2,rect.height/2);ctx.scale(PLACE_ZOOM,PLACE_ZOOM);ctx.translate(-psx-tileSize/2,-psy-tileSize/2);}ctx.drawImage(terrainCanvas,0,0,rect.width,rect.height);if(state.placeMode)highlightPlacementArea();const pulse=(Math.sin(animT/600)+1)/2;for(const s of state.map.spawners){const {sx,sy}=tileToScreen(s.x,s.y);ctx.save();ctx.globalAlpha=.35+.35*pulse;ctx.strokeStyle=COLORS.spawner;ctx.lineWidth=Math.max(2,tileSize*.1);ctx.beginPath();ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.42+tileSize*.08*pulse,0,Math.PI*2);ctx.stroke();ctx.restore()}if(state.placeMode){for(const t of state.towers){if(t.type==='arrow')outlineRangeTiles(t.x,t.y,TRAP_RANGE,COLORS.arrow);if(t.type==='rune')outlineRangeTiles(t.x,t.y,RUNE_RADIUS,COLORS.rune);if(t.type==='fire')outlineRangeTiles(t.x,t.y,FIRE_RADIUS,COLORS.fire);if(t.type==='spike')drawOutlineRect(t.x,t.y,COLORS.spike,.25)}}for(const t of state.towers){drawTrapIcon(t);if(t.ammo!==undefined)drawTrapMeter(t)}for(const e of state.enemies)drawEnemy(e);drawPlayer();drawEffects();ctx.restore();if(state.won||state.lost){ctx.save();ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,rect.width,rect.height);ctx.fillStyle=state.won?'#7dff9d':'#ff6b6b';ctx.font='bold 26px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(state.won?'YOU ESCAPED!':'DEFEATED',rect.width/2,rect.height/2-10);ctx.fillStyle='#e8ecff';ctx.font='16px system-ui';ctx.fillText('Tap "New Game" to try again',rect.width/2,rect.height/2+18);ctx.restore()}}window.addEventListener('resize',()=>{ensureOffscreen();terrainValid=false});
 document.addEventListener('keydown',(e)=>{if(state.won||state.lost||state.placeMode)return;const key=e.key.toLowerCase();if(['arrowup','w'].includes(key))playerMove(0,-1,e.shiftKey);else if(['arrowdown','s'].includes(key))playerMove(0,1,e.shiftKey);else if(['arrowleft','a'].includes(key))playerMove(-1,0,e.shiftKey);else if(['arrowright','d'].includes(key))playerMove(1,0,e.shiftKey);else if(key==='q')toggleDashArm();else if(['1','2','3','4'].includes(e.key))setActiveTrap(TRAP_DEFS[Number(e.key)-1].id);});
 btnDash.addEventListener('click',()=>{if(!btnDash.disabled)toggleDashArm()});
@@ -146,18 +153,130 @@ function tryPlace(x,y){const t=state.selectedTool,cost=COSTS[t];state.mana-=cost
 function isValidPlacement(x,y){if(!inBounds(x,y))return{ok:false,reason:'out of bounds'};if(isWall(x,y))return{ok:false,reason:'wall tile'};if(isStart(x,y)||isExit(x,y))return{ok:false,reason:'reserved tile'};if(isSpawner(x,y))return{ok:false,reason:'spawner tile'};if(isChest(x,y))return{ok:false,reason:'chest tile'};if(state.player.x===x&&state.player.y===y)return{ok:false,reason:'on player'};const dist=Math.abs(state.player.x-x)+Math.abs(state.player.y-y);if(dist>PLACE_RADIUS)return{ok:false,reason:`must place within ${PLACE_RADIUS} tiles of player`};if(state.towers.some(t=>t.x===x&&t.y===y))return{ok:false,reason:'occupied by a trap'};const cost=COSTS[state.selectedTool];if(state.mana<cost)return{ok:false,reason:`need ${cost} mana`};return{ok:true}}
 function flashHP(){hud.hpCard.classList.add('flash');setTimeout(()=>hud.hpCard.classList.remove('flash'),250)}
 function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();checkWinLose();updateHUD()}
-function rewardFor(k){return k==='goblin'?ENEMY.goblin.reward:k==='archer'?ENEMY.archer.reward:ENEMY.wraith.reward}
+function rewardFor(k){return ENEMY[k]?.reward||0}
 function towersAct(){if(!state.towers.length)return;const survivors=[];for(const t of state.towers){if(t.type==='arrow'){let best=null,bestD=1e9;for(const e of state.enemies){const d=Math.abs(t.x-e.x)+Math.abs(t.y-e.y);if(d<=TRAP_RANGE&&(t.x===e.x||t.y===e.y)&&lineOfSightRowCol(t,e)){if(d<bestD){best=e;bestD=d}}}let ammo=(t.ammo===undefined?ARROW_AMMO:t.ammo);if(best&&ammo>0){best.hp-=TRAP_DMG;addProjectileFX('projectile',t.x,t.y,best.x,best.y,COLORS.arrow,10);addFX('hit',best.x,best.y);ammo-=1}if(ammo>0){t.ammo=ammo;survivors.push(t)}else terrainValid=false}else if(t.type==='rune'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=RUNE_RADIUS){e.slowTurns=Math.max(e.slowTurns||0,RUNE_SLOW_TURNS);any=true}if(any)addFX('slow',t.x,t.y,14);survivors.push(t)}else if(t.type==='fire'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=FIRE_RADIUS){e.hp-=FIRE_DMG;e.burn=Math.max(e.burn||0,BURN_TURNS);any=true;addFX('fire',e.x,e.y,12)}if(any)state.fx.push({kind:'fireRange',x:t.x,y:t.y,r:FIRE_RADIUS,life:12,max:12});survivors.push(t)}else if(t.type==='spike'){survivors.push(t)}}let add=0;const alive=[];for(const e of state.enemies){if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0)logMsg(`Enemies defeated (+${add} mana).`);state.mana+=add;state.enemies=alive;state.towers=survivors}
 function enemiesPreEffects(){let add=0;const alive=[];for(const e of state.enemies){if(e.burn&&e.burn>0){e.hp-=BURN_DMG;e.burn--;addFX('fire',e.x,e.y,10)}if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0){state.mana+=add;logMsg(`Burned enemies defeated (+${add} mana).`)}state.enemies=alive}
 function bfsPath(start,goal,allowPhase,occupied,traps,avoidTraps=true){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const q=[start];const prev={};const seen=new Set([start.x+','+start.y]);const goalKey=goal.x+','+goal.y;while(q.length){const cur=q.shift();const key=cur.x+','+cur.y;if(key===goalKey)break;for(const d of dirs){const nx=cur.x+d[0],ny=cur.y+d[1];if(!inBounds(nx,ny))continue;if(!allowPhase&&isWall(nx,ny))continue;const nk=nx+','+ny;if(seen.has(nk))continue;if(occupied.has(nk)&&nk!==goalKey)continue;if(avoidTraps&&traps.has(nk))continue;seen.add(nk);prev[nk]=cur;q.push({x:nx,y:ny})}}if(!seen.has(goalKey))return null;const path=[];let cur=goal;while(cur){path.unshift(cur);const k=cur.x+','+cur.y;cur=prev[k]}return path}
 function adjacentTargets(base,occupied){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const goals=[];for(const d of dirs){const tx=base.x+d[0],ty=base.y+d[1];if(!inBounds(tx,ty)||isWall(tx,ty))continue;const key=tx+','+ty;if(!occupied.has(key))goals.push({x:tx,y:ty})}if(!goals.length)goals.push({x:base.x,y:base.y});return goals}
-function enemyAttack(e){if(e.kind==='archer'){if(e.cooldown>0){e.cooldown--;return false}const d=Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y);if(d<=ENEMY.archer.range&&clearShotToPlayer(e,e)){addProjectileFX('projectile',e.x,e.y,state.player.x,state.player.y,COLORS.enemyArcher,12);state.hp-=ENEMY.archer.dmg;flashHP();logMsg(`Skeleton archer hits you for ${ENEMY.archer.dmg}.`);e.cooldown=ENEMY.archer.cd;return true}return false}else{const d=Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y);if(d===1){const dmg=e.kind==='goblin'?ENEMY.goblin.touch:ENEMY.wraith.touch;state.hp-=dmg;flashHP();addFX('slash',state.player.x,state.player.y,12);logMsg(`Enemy hit you for ${dmg} damage.`);return true}return false}}
+function enemyAttack(e){
+    if(e.kind==='archer'){
+        if(e.cooldown>0){e.cooldown--;return false}
+        const d=Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y);
+        if(d<=ENEMY.archer.range&&clearShotToPlayer(e,e)){
+            addProjectileFX('projectile',e.x,e.y,state.player.x,state.player.y,COLORS.enemyArcher,12);
+            state.hp-=ENEMY.archer.dmg;
+            flashHP();
+            logMsg(`Skeleton archer hits you for ${ENEMY.archer.dmg}.`);
+            e.cooldown=ENEMY.archer.cd;
+            return true;
+        }
+        return false;
+    }else{
+        const d=Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y);
+        const dmg=ENEMY[e.kind]?.touch||0;
+        if(d===1&&dmg>0){
+            state.hp-=dmg;
+            flashHP();
+            addFX('slash',state.player.x,state.player.y,12);
+            logMsg(`Enemy hit you for ${dmg} damage.`);
+            return true;
+        }
+        return false;
+    }
+}
 function moveArcher(e,occupied){const key=e.x+','+e.y;occupied.delete(key);const dirs=[[1,0],[-1,0],[0,1],[0,-1]];let best=null;for(const d of dirs){const nx=e.x+d[0],ny=e.y+d[1];if(!inBounds(nx,ny)||isWall(nx,ny))continue;const nk=nx+','+ny;if(occupied.has(nk))continue;if(state.towers.some(t=>t.x===nx&&t.y===ny))continue;const dist=Math.abs(nx-state.player.x)+Math.abs(ny-state.player.y);const shot=dist<=ENEMY.archer.range&&clearShotToPlayer({x:nx,y:ny},e);const score=Math.abs(dist-ENEMY.archer.range)+(shot?0:1);if(!best||score<best.score)best={nx,ny,score}}if(best){e.x=best.nx;e.y=best.ny;occupied.add(best.nx+','+best.ny)}else occupied.add(key)}
 function moveEnemy(e,occupied){const key=e.x+','+e.y;occupied.delete(key);const traps=new Set(state.towers.map(t=>t.x+','+t.y));let base={x:state.player.x,y:state.player.y};if(state.lastMove&&(Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y)>4)){const px=state.player.x+state.lastMove.dx,py=state.player.y+state.lastMove.dy;if(inBounds(px,py)&&!isWall(px,py))base={x:px,y:py}}const goals=adjacentTargets(base,occupied);let best=null,bestLen=1e9;for(const g of goals){let p=bfsPath({x:e.x,y:e.y},g,e.kind==='wraith',occupied,traps,true);if(!p)p=bfsPath({x:e.x,y:e.y},g,e.kind==='wraith',occupied,traps,false);if(p&&p.length<bestLen){best=p;bestLen=p.length}}if(best&&best.length>1){const step=best[1];const nk=step.x+','+step.y;if(!occupied.has(nk)){e.x=step.x;e.y=step.y;occupied.add(nk)}else occupied.add(key)}else occupied.add(key)}
-function enemiesAct(){const occupied=new Set([state.player.x+','+state.player.y]);for(const en of state.enemies)occupied.add(en.x+','+en.y);const survivors=[];let add=0;for(const e of state.enemies){if(e.slowTurns&&e.slowTurns>0&&state.turn%2===1){e.slowTurns--;survivors.push(e);continue}let acted=false;if(e.kind==='archer'){acted=enemyAttack(e);if(!acted){moveArcher(e,occupied);acted=enemyAttack(e)}}else{moveEnemy(e,occupied);acted=enemyAttack(e)}const idx=state.towers.findIndex(t=>t.type==='spike'&&t.x===e.x&&t.y===e.y);if(idx!==-1){e.hp-=SPIKE_DMG;state.towers.splice(idx,1);logMsg(`Spike hits for ${SPIKE_DMG}.`);addFX('hit',e.x,e.y)}if(e.hp>0){survivors.push(e);if(e.slowTurns&&e.slowTurns>0&&state.turn%2===0)e.slowTurns--}else add+=rewardFor(e.kind);if(state.hp<=0)break}if(add>0){state.mana+=add;logMsg(`Enemies defeated (+${add} mana).`)}state.enemies=survivors}
+function moveSaboteur(e,occupied){
+    const key=e.x+','+e.y;
+    const traps=state.towers;
+    if(!traps.length){moveEnemy(e,occupied);return;}
+    occupied.delete(key);
+    let best=null,bestLen=1e9;
+    for(const t of traps){
+        const p=bfsPath({x:e.x,y:e.y},{x:t.x,y:t.y},false,occupied,new Set(),false);
+        if(p&&p.length<bestLen){best=p;bestLen=p.length;}
+    }
+    if(best&&best.length>1){
+        const step=best[1];
+        const nk=step.x+','+step.y;
+        e.x=step.x;e.y=step.y;occupied.add(nk);
+    }else{
+        occupied.add(key);
+    }
+}
+function enemiesAct(){
+    const occupied=new Set([state.player.x+','+state.player.y]);
+    for(const en of state.enemies)occupied.add(en.x+','+en.y);
+    const survivors=[];let add=0;
+    for(const e of state.enemies){
+        if(e.slowTurns&&e.slowTurns>0&&state.turn%2===1){e.slowTurns--;survivors.push(e);continue}
+        let acted=false;
+        if(e.kind==='archer'){
+            acted=enemyAttack(e);
+            if(!acted){moveArcher(e,occupied);acted=enemyAttack(e)}
+        }else if(e.kind==='brute'){
+            if(e.bruteRest){acted=enemyAttack(e);e.bruteRest=false;occupied.add(e.x+','+e.y);}
+            else{moveEnemy(e,occupied);acted=enemyAttack(e);e.bruteRest=true;}
+        }else if(e.kind==='saboteur'){
+            moveSaboteur(e,occupied);
+            const tidx=state.towers.findIndex(t=>t.x===e.x&&t.y===e.y);
+            if(tidx!==-1){state.towers.splice(tidx,1);terrainValid=false;logMsg('Saboteur destroyed a trap!');e.hp=0;}
+            acted=enemyAttack(e);
+        }else if(e.kind==='hunter'){
+            for(let s=0;s<2;s++){moveEnemy(e,occupied);if(enemyAttack(e)){acted=true;break;}}
+            if(!acted)acted=enemyAttack(e);
+        }else{
+            moveEnemy(e,occupied);acted=enemyAttack(e);
+        }
+        const idx=state.towers.findIndex(t=>t.type==='spike'&&t.x===e.x&&t.y===e.y);
+        if(idx!==-1){e.hp-=SPIKE_DMG;state.towers.splice(idx,1);logMsg(`Spike hits for ${SPIKE_DMG}.`);addFX('hit',e.x,e.y)}
+        if(e.hp>0){survivors.push(e);if(e.slowTurns&&e.slowTurns>0&&state.turn%2===0)e.slowTurns--}else add+=rewardFor(e.kind);
+        if(state.hp<=0)break
+    }
+    if(add>0){state.mana+=add;logMsg(`Enemies defeated (+${add} mana).`)}
+    state.enemies=survivors
+}
 function spawnCooldown(t){return baseSpawnCooldown(t)}function spawnCount(t,progress){return (1+Math.floor(t/15))+(progress>.5?1:0)}
 function pickSpawnPos(){const minR=SPAWN_MIN_RADIUS;const ring=state.map.spawners.filter(s=>{const d=Math.abs(s.x-state.player.x)+Math.abs(s.y-state.player.y);return d>=Math.max(8,minR)&&d<=18});const behindRing=ring.filter(s=>s.x<=state.player.x-2);const pool1=behindRing.length?behindRing:(ring.length?ring:state.map.spawners);const candidates=pool1.filter(p=>{const d=Math.abs(p.x-state.player.x)+Math.abs(p.y-state.player.y);return d>=minR&&!(p.x===state.player.x&&p.y===state.player.y)&&!state.enemies.some(e=>e.x===p.x&&e.y===p.y)});if(candidates.length)return candidates[(Math.random()*candidates.length)|0];let best=null,bestD=-1;for(const p of state.map.spawners){const d=Math.abs(p.x-state.player.x)+Math.abs(p.y-state.player.y);if(d>=minR&&d>bestD){best=p;bestD=d}}return best}
-function handleSpawns(){const nearCount=state.enemies.reduce((n,e)=>n+(Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y)<=4?1:0),0);if(nearCount>=5){state.nextSpawn=Math.max(state.nextSpawn,2);return}state.nextSpawn-=1;if(state.nextSpawn<=0){const free=ENEMY_CAP-state.enemies.length;if(free>0){const progress=state.player.x/(GRID_W-1);const desired=Math.min(spawnCount(state.turn,progress),free);let count=0;for(let i=0;i<desired;i++){const pos=pickSpawnPos();if(!pos)break;const roll=Math.random();let kind='goblin';if(roll>.8)kind='wraith';else if(roll>.55)kind='archer';const base=ENEMY[kind];state.enemies.push({x:pos.x,y:pos.y,hp:base.hp,maxhp:base.hp,kind,cooldown:ENEMY.archer.cd,idle:(nearCount>=5?1:0)});count++}if(count>0)logMsg(count===1?'An enemy emerged from a portal!':`${count} enemies emerged from portals!`)}state.nextSpawn=spawnCooldown(state.turn)}}
+function spawnBoss(){
+    const pos=pickSpawnPos();
+    if(!pos)return;
+    const roll=Math.random();
+    let kind='brute';
+    if(roll<1/3)kind='brute';
+    else if(roll<2/3)kind='saboteur';
+    else kind='hunter';
+    const base=ENEMY[kind];
+    state.enemies.push({x:pos.x,y:pos.y,hp:base.hp,maxhp:base.hp,kind,bruteRest:false});
+    logMsg(`A ${kind} boss has appeared!`);
+}
+function handleSpawns(){
+    const nearCount=state.enemies.reduce((n,e)=>n+(Math.abs(e.x-state.player.x)+Math.abs(e.y-state.player.y)<=4?1:0),0);
+    if(nearCount>=5){state.nextSpawn=Math.max(state.nextSpawn,2);return}
+    state.nextSpawn-=1;
+    if(state.nextSpawn<=0){
+        const free=ENEMY_CAP-state.enemies.length;
+        if(free>0){
+            const progress=state.player.x/(GRID_W-1);
+            const desired=Math.min(spawnCount(state.turn,progress),free);
+            let count=0;
+            for(let i=0;i<desired;i++){
+                const pos=pickSpawnPos();
+                if(!pos)break;
+                const roll=Math.random();
+                let kind='goblin';
+                if(roll>.8)kind='wraith';
+                else if(roll>.55)kind='archer';
+                const base=ENEMY[kind];
+                state.enemies.push({x:pos.x,y:pos.y,hp:base.hp,maxhp:base.hp,kind,cooldown:ENEMY.archer.cd,idle:(nearCount>=5?1:0)});
+                count++;
+            }
+            if(count>0)logMsg(count===1?'An enemy emerged from a portal!':`${count} enemies emerged from portals!`);
+        }
+        state.nextSpawn=spawnCooldown(state.turn);
+    }
+    if(state.turn>0&&state.turn%20===0)spawnBoss();
+}
 function checkWinLose(){if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y){state.won=true;logMsg('You reached the exit. Victory!')}if(state.hp<=0){state.lost=true;logMsg('You have fallen...')}}
 function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false,lastMove:{dx:0,dy:0},ammo:{arrow:Infinity,rune:Infinity,fire:Infinity,spike:Infinity}};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/GRID_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;renderTrapbar(TRAP_DEFS,state);TRAP_DEFS.forEach(t=>setCooldown(t.id,0,1));updateHUD();}
 
