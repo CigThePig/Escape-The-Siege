@@ -1,4 +1,4 @@
-import{GRID_W,GRID_H,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,COLORS}from './constants.js';
+import{GRID_W,GRID_H,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SAB_EXP_DMG,SAB_EXP_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,COLORS}from './constants.js';
 import './ui.js';
 import './map.js';
 import './enemies.js';
@@ -88,6 +88,20 @@ function drawEffects(){
                     if(Math.abs(fx.x-x)+Math.abs(fx.y-y)<=fx.r)drawOutlineRect(x,y,COLORS.fire,a);
                 }
             }
+        }else if(fx.kind==='saboteurExplosion'){
+            ctx.globalAlpha=.5*(fx.life/fx.max);
+            ctx.fillStyle='rgba(168,85,247,.25)';
+            ctx.beginPath();
+            ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.45,0,Math.PI*2);
+            ctx.fill();
+        }else if(fx.kind==='saboteurRange'){
+            const a=.3*(fx.life/fx.max);
+            for(let y=fx.y-fx.r;y<=fx.y+fx.r;y++){
+                for(let x=fx.x-fx.r;x<=fx.x+fx.r;x++){
+                    if(!inBounds(x,y))continue;
+                    if(Math.abs(fx.x-x)+Math.abs(fx.y-y)<=fx.r)drawOutlineRect(x,y,COLORS.saboteurExplosion,a);
+                }
+            }
         }else if(fx.kind==='projectile'){
             const p=1-fx.life/fx.max;
             const {sx:asx,sy:asy}=tileToScreen(fx.sx,fx.sy);
@@ -142,7 +156,57 @@ function isValidPlacement(x,y){if(!inBounds(x,y))return{ok:false,reason:'out of 
 function flashHP(){hud.hpCard.classList.add('flash');setTimeout(()=>hud.hpCard.classList.remove('flash'),250)}
 function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();checkWinLose();updateHUD()}
 function rewardFor(k){return ENEMY[k]?.reward||0}
-function towersAct(){if(!state.towers.length)return;const survivors=[];for(const t of state.towers){if(t.type==='arrow'){let best=null,bestD=1e9;for(const e of state.enemies){const d=Math.abs(t.x-e.x)+Math.abs(t.y-e.y);if(d<=TRAP_RANGE&&(t.x===e.x||t.y===e.y)&&lineOfSightRowCol(t,e)){if(d<bestD){best=e;bestD=d}}}let ammo=(t.ammo===undefined?ARROW_AMMO:t.ammo);if(best&&ammo>0){best.hp-=TRAP_DMG;addProjectileFX('projectile',t.x,t.y,best.x,best.y,COLORS.arrow,10);addFX('hit',best.x,best.y);ammo-=1}if(ammo>0){t.ammo=ammo;survivors.push(t)}else terrainValid=false}else if(t.type==='rune'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=RUNE_RADIUS){e.slowTurns=Math.max(e.slowTurns||0,RUNE_SLOW_TURNS);any=true}if(any)addFX('slow',t.x,t.y,14);survivors.push(t)}else if(t.type==='fire'){let any=false;for(const e of state.enemies)if(Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=FIRE_RADIUS){e.hp-=FIRE_DMG;e.burn=Math.max(e.burn||0,BURN_TURNS);any=true;addFX('fire',e.x,e.y,12)}if(any)state.fx.push({kind:'fireRange',x:t.x,y:t.y,r:FIRE_RADIUS,life:12,max:12});survivors.push(t)}else if(t.type==='spike'){survivors.push(t)}}let add=0;const alive=[];for(const e of state.enemies){if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0)logMsg(`Enemies defeated (+${add} mana).`);state.mana+=add;state.enemies=alive;state.towers=survivors}
+function towersAct(){
+    if(!state.towers.length)return;
+    const survivors=[];
+    for(const t of state.towers){
+        if(t.type==='arrow'){
+            let best=null,bestD=1e9;
+            for(const e of state.enemies){
+                if(e.kind==='saboteur')continue;
+                const d=Math.abs(t.x-e.x)+Math.abs(t.y-e.y);
+                if(d<=TRAP_RANGE&&(t.x===e.x||t.y===e.y)&&lineOfSightRowCol(t,e)){
+                    if(d<bestD){best=e;bestD=d}
+                }
+            }
+            let ammo=(t.ammo===undefined?ARROW_AMMO:t.ammo);
+            if(best&&ammo>0){
+                best.hp-=TRAP_DMG;
+                addProjectileFX('projectile',t.x,t.y,best.x,best.y,COLORS.arrow,10);
+                addFX('hit',best.x,best.y);
+                ammo-=1;
+            }
+            if(ammo>0){t.ammo=ammo;survivors.push(t)}else terrainValid=false;
+        }else if(t.type==='rune'){
+            const targets=state.enemies.filter(e=>Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=RUNE_RADIUS);
+            if(targets.some(e=>e.kind!=='saboteur')){
+                for(const e of targets){e.slowTurns=Math.max(e.slowTurns||0,RUNE_SLOW_TURNS);}
+                addFX('slow',t.x,t.y,14);
+            }
+            survivors.push(t);
+        }else if(t.type==='fire'){
+            const targets=state.enemies.filter(e=>Math.abs(t.x-e.x)+Math.abs(t.y-e.y)<=FIRE_RADIUS);
+            if(targets.some(e=>e.kind!=='saboteur')){
+                for(const e of targets){
+                    e.hp-=FIRE_DMG;
+                    e.burn=Math.max(e.burn||0,BURN_TURNS);
+                    addFX('fire',e.x,e.y,12);
+                }
+                state.fx.push({kind:'fireRange',x:t.x,y:t.y,r:FIRE_RADIUS,life:12,max:12});
+            }
+            survivors.push(t);
+        }else if(t.type==='spike'){
+            survivors.push(t);
+        }
+    }
+    let add=0;const alive=[];
+    for(const e of state.enemies){
+        if(e.hp<=0)add+=rewardFor(e.kind);
+        else alive.push(e);
+    }
+    if(add>0)logMsg(`Enemies defeated (+${add} mana).`);
+    state.mana+=add;state.enemies=alive;state.towers=survivors;
+}
 function enemiesPreEffects(){let add=0;const alive=[];for(const e of state.enemies){if(e.burn&&e.burn>0){e.hp-=BURN_DMG;e.burn--;addFX('fire',e.x,e.y,10)}if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0){state.mana+=add;logMsg(`Burned enemies defeated (+${add} mana).`)}state.enemies=alive}
 function bfsPath(start,goal,allowPhase,occupied,traps,avoidTraps=true){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const q=[start];const prev={};const seen=new Set([start.x+','+start.y]);const goalKey=goal.x+','+goal.y;while(q.length){const cur=q.shift();const key=cur.x+','+cur.y;if(key===goalKey)break;for(const d of dirs){const nx=cur.x+d[0],ny=cur.y+d[1];if(!inBounds(nx,ny))continue;if(!allowPhase&&isWall(nx,ny))continue;const nk=nx+','+ny;if(seen.has(nk))continue;if(occupied.has(nk)&&nk!==goalKey)continue;if(avoidTraps&&traps.has(nk))continue;seen.add(nk);prev[nk]=cur;q.push({x:nx,y:ny})}}if(!seen.has(goalKey))return null;const path=[];let cur=goal;while(cur){path.unshift(cur);const k=cur.x+','+cur.y;cur=prev[k]}return path}
 function adjacentTargets(base,occupied){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const goals=[];for(const d of dirs){const tx=base.x+d[0],ty=base.y+d[1];if(!inBounds(tx,ty)||isWall(tx,ty))continue;const key=tx+','+ty;if(!occupied.has(key))goals.push({x:tx,y:ty})}if(!goals.length)goals.push({x:base.x,y:base.y});return goals}
@@ -192,11 +256,30 @@ function moveSaboteur(e,occupied){
         occupied.add(key);
     }
 }
+function saboteurExplode(s){
+    for(const other of state.enemies){
+        if(other===s)continue;
+        const d=Math.abs(other.x-s.x)+Math.abs(other.y-s.y);
+        if(d<=SAB_EXP_RADIUS){
+            other.hp-=SAB_EXP_DMG;
+            addFX('hit',other.x,other.y);
+        }
+    }
+    if(Math.abs(state.player.x-s.x)+Math.abs(state.player.y-s.y)<=SAB_EXP_RADIUS){
+        state.hp-=SAB_EXP_DMG;
+        flashHP();
+        addFX('hit',state.player.x,state.player.y);
+        logMsg(`Saboteur explosion hits you for ${SAB_EXP_DMG}.`);
+    }
+    addFX('saboteurExplosion',s.x,s.y,12);
+    state.fx.push({kind:'saboteurRange',x:s.x,y:s.y,r:SAB_EXP_RADIUS,life:12,max:12});
+}
 function enemiesAct(){
     const occupied=new Set([state.player.x+','+state.player.y]);
     for(const en of state.enemies)occupied.add(en.x+','+en.y);
     const survivors=[];let add=0;
     for(const e of state.enemies){
+        if(e.hp<=0){add+=rewardFor(e.kind);continue}
         if(e.slowTurns&&e.slowTurns>0&&state.turn%2===1){e.slowTurns--;survivors.push(e);continue}
         let acted=false;
         if(e.kind==='archer'){
@@ -208,7 +291,15 @@ function enemiesAct(){
         }else if(e.kind==='saboteur'){
             moveSaboteur(e,occupied);
             const tidx=state.towers.findIndex(t=>t.x===e.x&&t.y===e.y);
-            if(tidx!==-1){state.towers.splice(tidx,1);terrainValid=false;logMsg('Saboteur destroyed a trap!');e.hp=0;}
+            if(tidx!==-1){
+                state.towers.splice(tidx,1);
+                terrainValid=false;
+                logMsg('Saboteur detonated after destroying a trap!');
+                saboteurExplode(e);
+                occupied.delete(e.x+','+e.y);
+                add+=rewardFor(e.kind);
+                continue;
+            }
             acted=enemyAttack(e);
         }else if(e.kind==='hunter'){
             for(let s=0;s<2;s++){moveEnemy(e,occupied);if(enemyAttack(e)){acted=true;break;}}
