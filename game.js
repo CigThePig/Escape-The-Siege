@@ -1,22 +1,10 @@
+import{GRID_W,GRID_H,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,COLORS}from './constants.js';
+import './ui.js';
+import './map.js';
+import './enemies.js';
+
 (() => {
 
-const GRID_W=30,GRID_H=30;const PASSIVE_MANA=1,START_MANA=10,START_HP=10;
-const CHEST_MANA=8;const COSTS={arrow:9,rune:10,fire:16,spike:6};
-const TRAP_RANGE=4,TRAP_DMG=2;const RUNE_RADIUS=1,FIRE_DMG=3,FIRE_RADIUS=3,SPIKE_DMG=8;const PLACE_RADIUS=4,PLACE_ZOOM=1.4;
-const ARROW_AMMO=5;const BURN_TURNS=2,BURN_DMG=1;const RUNE_SLOW_TURNS=2;
-const DASH_CD=8,DASH_COST=3;
-const DENSITY_TILE_WEIGHT=.5,DENSITY_NEIGHBOR_WEIGHT=.25,PATIENCE_PROB=.2,PATROL_RADIUS=12;
-const ENEMY={
-    goblin:{hp:3,touch:2,reward:1,speed:1},
-    archer:{hp:4,touch:1,reward:2,speed:1,range:4,cd:3,dmg:2},
-    wraith:{hp:6,touch:3,reward:4,speed:1,phaser:true},
-    brute:{hp:20,touch:10,reward:10,speed:1,boss:true},
-    saboteur:{hp:5,touch:0,reward:8,speed:1,boss:true},
-    hunter:{hp:3,touch:2,reward:6,speed:2,boss:true}
-};
-function baseSpawnCooldown(t){return Math.max(2,4-Math.floor(t/20))}function baseSpawnCount(t){return 1+Math.floor(t/15)}
-const ENEMY_CAP=18,CHESTS_PER_RUN=5,SPAWN_MIN_RADIUS=6;
-const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa',enemyBrute:'#991b1b',enemySaboteur:'#f97316',enemyHunter:'#10b981'};
 let tileSize=0,tilePad=1,animT=0;let terrainCanvas=null,terrainCtx=null,terrainValid=false;let state;
 
 const canvas=document.getElementById('game');const ctx=canvas.getContext('2d',{alpha:false})||canvas.getContext('2d');const raf=window.requestAnimationFrame||(cb=>setTimeout(()=>cb(Date.now()),16));
