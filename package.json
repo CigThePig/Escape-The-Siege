@@ -2,6 +2,7 @@
   "name": "escape-the-siege",
   "version": "1.0.0",
   "description": "Development test configuration for Escape The Siege",
+  "type": "module",
   "scripts": {
     "test": "node --test"
   }
