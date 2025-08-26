@@ -1,4 +1,4 @@
-import{GRID_W,GRID_H,VIEW_W,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SAB_EXP_DMG,SAB_EXP_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,FIRE_AMMO,RUNE_TURNS,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,NODE_ENEMY_CAP_INCR,COLORS}from './constants.js';
+import{GRID_W,GRID_H,VIEW_W,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SAB_EXP_DMG,SAB_EXP_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,FIRE_AMMO,RUNE_TURNS,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,NODE_ENEMY_CAP_INCR,POTION_HEAL,COLORS}from './constants.js';
 import './ui.js';
 import { buildMap } from './map.js';
 import './enemies.js';
@@ -66,10 +66,17 @@ function drawOutlineRect(x,y,c,a){drawOutlineRectTo(ctx,x,y,c,a)}
 function drawHPBar(x,y,ratio){const {sx,sy}=tileToScreen(x,y);const w=tileSize-tilePad*2,h=Math.max(3,tileSize*.09);const bx=sx+tilePad,by=sy+tilePad*.7;ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,w,h);ctx.fillStyle=ratio>.5?'#22c55e':(ratio>.25?'#f59e0b':'#ef4444');ctx.fillRect(bx,by,w*ratio,h)}
 function drawTrapMeter(t){const {sx,sy}=tileToScreen(t.x,t.y);let max=1;switch(t.type){case'arrow':max=ARROW_AMMO;break;case'fire':max=FIRE_AMMO;break;case'rune':max=RUNE_TURNS;break;}const ratio=(t.ammo===undefined?1:t.ammo/max);const w=tileSize-tilePad*2,h=Math.max(3,tileSize*.1);const bx=sx+tilePad,by=sy+tileSize-h-tilePad;ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,w,h);ctx.fillStyle=ratio>.5?'#22c55e':(ratio>.25?'#f59e0b':'#ef4444');ctx.fillRect(bx,by,w*ratio,h)}
 function drawTrapIcon(t){const {sx,sy}=tileToScreen(t.x,t.y);const cx=sx+tileSize/2,cy=sy+tileSize/2;const size=tileSize-tilePad*2;ctx.save();if(t.type==='arrow'){ctx.fillStyle=COLORS.arrow;ctx.beginPath();ctx.moveTo(cx-size*.35,cy-size*.2);ctx.lineTo(cx+size*.35,cy);ctx.lineTo(cx-size*.35,cy+size*.2);ctx.closePath();ctx.fill()}else if(t.type==='rune'){ctx.strokeStyle=COLORS.rune;ctx.lineWidth=Math.max(2,tileSize*.1);ctx.beginPath();ctx.moveTo(cx,cy-size*.3);ctx.lineTo(cx+size*.3,cy);ctx.lineTo(cx,cy+size*.3);ctx.lineTo(cx-size*.3,cy);ctx.closePath();ctx.stroke()}else if(t.type==='fire'){ctx.fillStyle=COLORS.fire;ctx.beginPath();ctx.arc(cx,cy,size*.3,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(cx,cy-size*.2);ctx.lineTo(cx+size*.1,cy);ctx.lineTo(cx-size*.1,cy);ctx.closePath();ctx.fill()}else if(t.type==='spike'){ctx.fillStyle=COLORS.spike;ctx.beginPath();ctx.moveTo(cx,cy-size*.35);ctx.lineTo(cx+size*.35,cy+size*.35);ctx.lineTo(cx-size*.35,cy+size*.35);ctx.closePath();ctx.fill()}ctx.restore()}
+function drawDrops(){for(const d of state.drops){const {sx,sy}=tileToScreen(d.x,d.y);const cx=sx+tileSize/2,cy=sy+tileSize/2;const r=tileSize/4;ctx.save();if(d.kind==='mana'){ctx.fillStyle=COLORS.mana;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill()}else if(d.kind==='potion'){ctx.fillStyle=COLORS.potion;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,tileSize*.08);ctx.beginPath();ctx.moveTo(cx,cy-r*.5);ctx.lineTo(cx,cy+r*.5);ctx.moveTo(cx-r*.5,cy);ctx.lineTo(cx+r*.5,cy);ctx.stroke()}ctx.restore()}}
 function outlineRangeTiles(cx,cy,r,color){for(let y=cy-r;y<=cy+r;y++){for(let x=cx-r;x<=cx+r;x++){if(!inBounds(x,y))continue;if(Math.abs(cx-x)+Math.abs(cy-y)<=r)drawOutlineRect(x,y,color,.18)}}}
 function highlightPlacementArea(){for(let y=state.player.y-PLACE_RADIUS;y<=state.player.y+PLACE_RADIUS;y++){for(let x=state.player.x-PLACE_RADIUS;x<=state.player.x+PLACE_RADIUS;x++){if(!inBounds(x,y))continue;const check=isValidPlacement(x,y);if(check.ok)drawOutlineRect(x,y,COLORS.player,.25)}}}
+function updateDrops(){const next=[];for(const d of state.drops){const dist=Math.abs(d.x-state.player.x)+Math.abs(d.y-state.player.y);if(dist<=5&&dist>0){const dx=state.player.x>d.x?1:state.player.x<d.x?-1:0;const dy=state.player.y>d.y?1:state.player.y<d.y?-1:0;d.x+=dx;d.y+=dy;}if(d.x===state.player.x&&d.y===state.player.y){if(d.kind==='mana'){state.mana+=d.amount;logMsg(`Collected ${d.amount} mana.`);}else if(d.kind==='potion'){const heal=Math.min(d.amount,START_HP-state.hp);if(heal>0){state.hp+=heal;logMsg(`Healed ${heal} HP.`);}}updateHUD();}else next.push(d);}state.drops=next}
 function addFX(kind,x,y,life=18){state.fx.push({kind,x,y,life,max:life})}
 function addProjectileFX(kind,sx,sy,tx,ty,color,life=12){state.fx.push({kind,sx,sy,tx,ty,color,life,max:life})}
+function dropLoot(x,y,amount){
+    addFX('explosion',x,y,12);
+    if(amount>0)state.drops.push({x,y,kind:'mana',amount});
+    if(Math.random()<0.05)state.drops.push({x,y,kind:'potion',amount:POTION_HEAL});
+}
 function drawEffects(){
     const next=[];
     for(let i=0;i<state.fx.length;i++){
@@ -95,6 +102,12 @@ function drawEffects(){
             ctx.fillStyle='rgba(239,68,68,.25)';
             ctx.beginPath();
             ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.45,0,Math.PI*2);
+            ctx.fill();
+        }else if(fx.kind==='explosion'){
+            ctx.globalAlpha=.6*(fx.life/fx.max);
+            ctx.fillStyle=COLORS.explosion;
+            ctx.beginPath();
+            ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.5*(1+(fx.max-fx.life)/fx.max),0,Math.PI*2);
             ctx.fill();
         }else if(fx.kind==='fireRange'){
             const a=.3*(fx.life/fx.max);
@@ -150,7 +163,7 @@ function drawEffects(){
 
 function drawPlayer(){const {sx,sy}=tileToScreen(state.player.x,state.player.y);const bob=Math.sin(animT/200)*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;ctx.fillStyle=COLORS.player;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeOffset=tileSize*.15,eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.arc(eyeOffset,-eyeOffset,eyeR,0,Math.PI*2);ctx.fill();ctx.restore()}
 function drawEnemy(e){const {sx,sy}=tileToScreen(e.x,e.y);const bob=Math.sin(animT/200+(e.x+e.y))*tileSize*.1;ctx.save();ctx.translate(sx+tileSize/2,sy+tileSize/2+bob);const r=tileSize/2-tilePad;let col;switch(e.kind){case'goblin':col=COLORS.enemyGoblin;break;case'archer':col=COLORS.enemyArcher;break;case'wraith':col=COLORS.enemyWraith;break;case'brute':col=COLORS.enemyBrute;break;case'saboteur':col=COLORS.enemySaboteur;break;case'hunter':col=COLORS.enemyHunter;break;default:col=COLORS.enemyWraith;}ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';const eyeR=tileSize*.07;ctx.beginPath();ctx.arc(-r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.arc(r*.3,-r*.2,eyeR,0,Math.PI*2);ctx.fill();if(e.kind==='archer'){ctx.strokeStyle='#000';ctx.lineWidth=Math.max(2,tileSize*.07);ctx.beginPath();ctx.moveTo(-r*.6,0);ctx.lineTo(r*.6,0);ctx.stroke()}if(e.kind==='wraith'){ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.moveTo(-r,r*.2);ctx.lineTo(0,r);ctx.lineTo(r,r*.2);ctx.closePath();ctx.fill()}ctx.restore();const maxhp=e.maxhp||(ENEMY[e.kind]?ENEMY[e.kind].hp:ENEMY.wraith.hp);drawHPBar(e.x,e.y,Math.max(0,e.hp)/maxhp)}
-function draw(){const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));updateCamera();ensureOffscreen();if(!terrainValid)drawTerrainAll();ctx.save();if(state.placeMode){const {sx:psx,sy:psy}=tileToScreen(state.player.x,state.player.y);ctx.translate(rect.width/2,rect.height/2);ctx.scale(PLACE_ZOOM,PLACE_ZOOM);ctx.translate(-psx-tileSize/2,-psy-tileSize/2);}ctx.drawImage(terrainCanvas,-state.cameraX*tileSize,-state.cameraY*tileSize);if(state.placeMode)highlightPlacementArea();const pulse=(Math.sin(animT/600)+1)/2;for(const s of state.map.spawners){const {sx,sy}=tileToScreen(s.x,s.y);ctx.save();ctx.globalAlpha=.35+.35*pulse;ctx.strokeStyle=COLORS.spawner;ctx.lineWidth=Math.max(2,tileSize*.1);ctx.beginPath();ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.42+tileSize*.08*pulse,0,Math.PI*2);ctx.stroke();ctx.restore()}if(state.placeMode){for(const t of state.towers){if(t.type==='arrow')outlineRangeTiles(t.x,t.y,TRAP_RANGE,COLORS.arrow);if(t.type==='rune')outlineRangeTiles(t.x,t.y,RUNE_RADIUS,COLORS.rune);if(t.type==='fire')outlineRangeTiles(t.x,t.y,FIRE_RADIUS,COLORS.fire);if(t.type==='spike')drawOutlineRect(t.x,t.y,COLORS.spike,.25)}}for(const t of state.towers){drawTrapIcon(t);if(t.ammo!==undefined)drawTrapMeter(t)}for(const e of state.enemies)drawEnemy(e);drawPlayer();drawEffects();ctx.restore();if(state.won||state.lost){ctx.save();ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,rect.width,rect.height);ctx.fillStyle=state.won?'#7dff9d':'#ff6b6b';ctx.font='bold 26px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(state.won?'YOU ESCAPED!':'DEFEATED',rect.width/2,rect.height/2-10);ctx.fillStyle='#e8ecff';ctx.font='16px system-ui';ctx.fillText('Tap "New Game" to try again',rect.width/2,rect.height/2+18);ctx.restore()}}window.addEventListener('resize',()=>{ensureOffscreen();terrainValid=false});
+function draw(){const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));updateCamera();ensureOffscreen();if(!terrainValid)drawTerrainAll();ctx.save();if(state.placeMode){const {sx:psx,sy:psy}=tileToScreen(state.player.x,state.player.y);ctx.translate(rect.width/2,rect.height/2);ctx.scale(PLACE_ZOOM,PLACE_ZOOM);ctx.translate(-psx-tileSize/2,-psy-tileSize/2);}ctx.drawImage(terrainCanvas,-state.cameraX*tileSize,-state.cameraY*tileSize);if(state.placeMode)highlightPlacementArea();const pulse=(Math.sin(animT/600)+1)/2;for(const s of state.map.spawners){const {sx,sy}=tileToScreen(s.x,s.y);ctx.save();ctx.globalAlpha=.35+.35*pulse;ctx.strokeStyle=COLORS.spawner;ctx.lineWidth=Math.max(2,tileSize*.1);ctx.beginPath();ctx.arc(sx+tileSize/2,sy+tileSize/2,tileSize*.42+tileSize*.08*pulse,0,Math.PI*2);ctx.stroke();ctx.restore()}if(state.placeMode){for(const t of state.towers){if(t.type==='arrow')outlineRangeTiles(t.x,t.y,TRAP_RANGE,COLORS.arrow);if(t.type==='rune')outlineRangeTiles(t.x,t.y,RUNE_RADIUS,COLORS.rune);if(t.type==='fire')outlineRangeTiles(t.x,t.y,FIRE_RADIUS,COLORS.fire);if(t.type==='spike')drawOutlineRect(t.x,t.y,COLORS.spike,.25)}}for(const t of state.towers){drawTrapIcon(t);if(t.ammo!==undefined)drawTrapMeter(t)}drawDrops();for(const e of state.enemies)drawEnemy(e);drawPlayer();drawEffects();ctx.restore();if(state.won||state.lost){ctx.save();ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,rect.width,rect.height);ctx.fillStyle=state.won?'#7dff9d':'#ff6b6b';ctx.font='bold 26px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(state.won?'YOU ESCAPED!':'DEFEATED',rect.width/2,rect.height/2-10);ctx.fillStyle='#e8ecff';ctx.font='16px system-ui';ctx.fillText('Tap "New Game" to try again',rect.width/2,rect.height/2+18);ctx.restore()}}window.addEventListener('resize',()=>{ensureOffscreen();terrainValid=false});
 document.addEventListener('keydown',(e)=>{if(state.won||state.lost||state.placeMode)return;const key=e.key.toLowerCase();if(['arrowup','w'].includes(key))playerMove(0,-1,e.shiftKey);else if(['arrowdown','s'].includes(key))playerMove(0,1,e.shiftKey);else if(['arrowleft','a'].includes(key))playerMove(-1,0,e.shiftKey);else if(['arrowright','d'].includes(key))playerMove(1,0,e.shiftKey);else if(key==='q')toggleDashArm();else if(['1','2','3','4'].includes(e.key))setActiveTrap(TRAP_DEFS[Number(e.key)-1].id);});
 btnDash.addEventListener('click',()=>{if(!btnDash.disabled)toggleDashArm()});
 function toggleDashArm(){if(state.dashCD>0||state.mana<DASH_COST){logMsg(state.dashCD>0?`Dash on cooldown (${state.dashCD}).`:`Need ${DASH_COST} mana to dash.`);return}state.dashArmed=!state.dashArmed;setDashArmed(state.dashArmed,state.dashCD)}
@@ -170,7 +183,7 @@ window.onMove=(dir)=>{if(dir==='up')playerMove(0,-1);else if(dir==='down')player
 function tryPlace(x,y){const t=state.selectedTool,cost=COSTS[t];state.mana-=cost;if(state.ammo[t]!==Infinity)state.ammo[t]--;if(t==='arrow')state.towers.push({x,y,type:t,ammo:ARROW_AMMO});else if(t==='fire')state.towers.push({x,y,type:t,ammo:FIRE_AMMO});else if(t==='rune')state.towers.push({x,y,type:t,ammo:RUNE_TURNS});else state.towers.push({x,y,type:t});state.placeMode=false;state.hover=null;logMsg(`Placed ${t} at (${x},${y}).`);updateMana(state.mana);if(t==='spike'){state.spikePlaced=true;}else advanceTurn()}
 function isValidPlacement(x,y){if(!inBounds(x,y))return{ok:false,reason:'out of bounds'};if(isWall(x,y))return{ok:false,reason:'wall tile'};if(isStart(x,y)||isExit(x,y))return{ok:false,reason:'reserved tile'};if(isSpawner(x,y))return{ok:false,reason:'spawner tile'};if(isChest(x,y))return{ok:false,reason:'chest tile'};if(state.player.x===x&&state.player.y===y)return{ok:false,reason:'on player'};const dist=Math.abs(state.player.x-x)+Math.abs(state.player.y-y);if(dist>PLACE_RADIUS)return{ok:false,reason:`must place within ${PLACE_RADIUS} tiles of player`};if(state.towers.some(t=>t.x===x&&t.y===y))return{ok:false,reason:'occupied by a trap'};if(state.selectedTool==='spike'&&state.spikePlaced)return{ok:false,reason:'only one spike per turn'};const cost=COSTS[state.selectedTool];if(state.mana<cost)return{ok:false,reason:`need ${cost} mana`};return{ok:true}}
 function flashHP(){hud.hpCard.classList.add('flash');setTimeout(()=>hud.hpCard.classList.remove('flash'),250)}
-function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.spikePlaced=false;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();updateNodes();checkWinLose();updateHUD()}
+function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.spikePlaced=false;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();updateDrops();updateNodes();checkWinLose();updateHUD()}
 function rewardFor(k){return ENEMY[k]?.reward||0}
 function towersAct(){
     if(!state.towers.length)return;
@@ -219,15 +232,14 @@ function towersAct(){
             survivors.push(t);
         }
     }
-    let add=0;const alive=[];
+    const alive=[];
     for(const e of state.enemies){
-        if(e.hp<=0)add+=rewardFor(e.kind);
+        if(e.hp<=0)dropLoot(e.x,e.y,rewardFor(e.kind));
         else alive.push(e);
     }
-    if(add>0)logMsg(`Enemies defeated (+${add} mana).`);
-    state.mana+=add;state.enemies=alive;state.towers=survivors;
+    state.enemies=alive;state.towers=survivors;
 }
-function enemiesPreEffects(){let add=0;const alive=[];for(const e of state.enemies){if(e.burn&&e.burn>0){e.hp-=BURN_DMG;e.burn--;addFX('fire',e.x,e.y,10)}if(e.hp<=0)add+=rewardFor(e.kind);else alive.push(e)}if(add>0){state.mana+=add;logMsg(`Burned enemies defeated (+${add} mana).`)}state.enemies=alive}
+function enemiesPreEffects(){const alive=[];for(const e of state.enemies){if(e.burn&&e.burn>0){e.hp-=BURN_DMG;e.burn--;addFX('fire',e.x,e.y,10)}if(e.hp<=0)dropLoot(e.x,e.y,rewardFor(e.kind));else alive.push(e)}state.enemies=alive}
 function bfsPath(start,goal,allowPhase,occupied,traps,avoidTraps=true){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const q=[start];const prev={};const seen=new Set([start.x+','+start.y]);const goalKey=goal.x+','+goal.y;while(q.length){const cur=q.shift();const key=cur.x+','+cur.y;if(key===goalKey)break;for(const d of dirs){const nx=cur.x+d[0],ny=cur.y+d[1];if(!inBounds(nx,ny))continue;if(!allowPhase&&isWall(nx,ny))continue;const nk=nx+','+ny;if(seen.has(nk))continue;if(occupied.has(nk)&&nk!==goalKey)continue;if(avoidTraps&&traps.has(nk))continue;seen.add(nk);prev[nk]=cur;q.push({x:nx,y:ny})}}if(!seen.has(goalKey))return null;const path=[];let cur=goal;while(cur){path.unshift(cur);const k=cur.x+','+cur.y;cur=prev[k]}return path}
 function adjacentTargets(base,occupied){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];const goals=[];for(const d of dirs){const tx=base.x+d[0],ty=base.y+d[1];if(!inBounds(tx,ty)||isWall(tx,ty))continue;const key=tx+','+ty;if(!occupied.has(key))goals.push({x:tx,y:ty})}if(!goals.length)goals.push({x:base.x,y:base.y});return goals}
 function enemyAttack(e){
@@ -297,9 +309,9 @@ function saboteurExplode(s){
 function enemiesAct(){
     const occupied=new Set([state.player.x+','+state.player.y]);
     for(const en of state.enemies)occupied.add(en.x+','+en.y);
-    const survivors=[];let add=0;
+    const survivors=[];
     for(const e of state.enemies){
-        if(e.hp<=0){add+=rewardFor(e.kind);continue}
+        if(e.hp<=0){dropLoot(e.x,e.y,rewardFor(e.kind));continue}
         if(e.slowTurns&&e.slowTurns>0&&state.turn%2===1){e.slowTurns--;survivors.push(e);continue}
         let acted=false;
         if(e.kind==='archer'){
@@ -317,7 +329,7 @@ function enemiesAct(){
                 logMsg('Saboteur detonated after destroying a trap!');
                 saboteurExplode(e);
                 occupied.delete(e.x+','+e.y);
-                add+=rewardFor(e.kind);
+                dropLoot(e.x,e.y,rewardFor(e.kind));
                 continue;
             }
             acted=enemyAttack(e);
@@ -329,10 +341,9 @@ function enemiesAct(){
         }
         const idx=state.towers.findIndex(t=>t.type==='spike'&&t.x===e.x&&t.y===e.y);
         if(idx!==-1){e.hp-=SPIKE_DMG;state.towers.splice(idx,1);logMsg(`Spike hits for ${SPIKE_DMG}.`);addFX('hit',e.x,e.y)}
-        if(e.hp>0){survivors.push(e);if(e.slowTurns&&e.slowTurns>0&&state.turn%2===0)e.slowTurns--}else add+=rewardFor(e.kind);
+        if(e.hp>0){survivors.push(e);if(e.slowTurns&&e.slowTurns>0&&state.turn%2===0)e.slowTurns--}else dropLoot(e.x,e.y,rewardFor(e.kind));
         if(state.hp<=0)break
     }
-    if(add>0){state.mana+=add;logMsg(`Enemies defeated (+${add} mana).`)}
     state.enemies=survivors
 }
 function spawnCooldown(t){return baseSpawnCooldown(t)}function spawnCount(t,progress){return (1+Math.floor(t/15))+(progress>.5?1:0)}
@@ -407,7 +418,7 @@ function checkWinLose(){
         }
     }else state.exitWarned=false;
     if(state.hp<=0){state.lost=true;logMsg('You have fallen...')}}
-function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false,lastMove:{dx:0,dy:0},ammo:{arrow:Infinity,rune:Infinity,fire:Infinity,spike:Infinity},cameraX:0,cameraY:0,spikePlaced:false,enemyCap:ENEMY_CAP,exitWarned:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateCamera();renderTrapbar(TRAP_DEFS,state);TRAP_DEFS.forEach(t=>setCooldown(t.id,0,1));updateHUD();}
+function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],drops:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false,lastMove:{dx:0,dy:0},ammo:{arrow:Infinity,rune:Infinity,fire:Infinity,spike:Infinity},cameraX:0,cameraY:0,spikePlaced:false,enemyCap:ENEMY_CAP,exitWarned:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateCamera();renderTrapbar(TRAP_DEFS,state);TRAP_DEFS.forEach(t=>setCooldown(t.id,0,1));updateHUD();}
 
 
 
