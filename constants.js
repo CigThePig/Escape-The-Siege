@@ -15,4 +15,5 @@ export const ENEMY={
 export function baseSpawnCooldown(t){return Math.max(2,4-Math.floor(t/20))}
 export function baseSpawnCount(t){return 1+Math.floor(t/15)}
 export const ENEMY_CAP=18,CHESTS_PER_RUN=5,SPAWN_MIN_RADIUS=6;
-export const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa',enemyBrute:'#991b1b',enemySaboteur:'#f97316',enemyHunter:'#10b981',saboteurExplosion:'#a855f7'};
+export const NODE_SIZE=6,NODE_BUFFER=2,NODE_CAPTURE_TURNS=60,NODE_ENEMY_CAP_INCR=10;
+export const COLORS={wall:'#0a0e1a',wallEdge:'#3b486b',floor:'#263667',start:'#1a6e2d',exit:'#22c55e',spawner:'#8b5cf6',arrow:'#0ea5e9',rune:'#06b6d4',fire:'#ef4444',spike:'#b45309',chest:'#eab308',player:'#fbbf24',enemyGoblin:'#ef4444',enemyArcher:'#f59e0b',enemyWraith:'#a78bfa',enemyBrute:'#991b1b',enemySaboteur:'#f97316',enemyHunter:'#10b981',saboteurExplosion:'#a855f7',nodeIdle:'#1e3a8a',nodeCapturing:'#60a5fa',nodeCaptured:'#22c55e'};
