@@ -426,7 +426,7 @@ btnNew.addEventListener('click',resetState);
 
 btnHelp.addEventListener('click',()=>{
 
-    alert('2.9.3 hotfix:\n• Fixed AI (removed stray rebuildFlow override).\n• Early win check after movement.\n• Chests are brighter and filled.\n• Archer cooldown clamped.\n• Prevented enemy swap moves.\n• Enemy phase wrapped in try/catch.')
+    alert('v2.9.7 update:\n• Trap icons\n• Ammo meters\n• Fire totem AoE indicator')
 
 });
 
