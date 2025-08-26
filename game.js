@@ -138,6 +138,14 @@ import './enemies.js';
       placementPreview.style.display = 'none';
       return;
     }
+    const dist = Math.max(
+      Math.abs(state.player.x - tileX),
+      Math.abs(state.player.y - tileY),
+    );
+    if (dist > PLACE_RADIUS) {
+      placementPreview.style.display = 'none';
+      return;
+    }
     const pad = parseFloat(getComputedStyle(mapWrap).paddingLeft) || 0;
     const { sx, sy } = tileToScreen(tileX, tileY);
     const size = tileSize * radius;
@@ -1121,7 +1129,6 @@ import './enemies.js';
     const t = state.selectedTool,
       cost = COSTS[t];
     state.mana -= cost;
-    if (state.ammo[t] !== Infinity) state.ammo[t]--;
     if (t === 'arrow') state.towers.push({ x, y, type: t, ammo: ARROW_AMMO });
     else if (t === 'fire')
       state.towers.push({ x, y, type: t, ammo: FIRE_AMMO });
