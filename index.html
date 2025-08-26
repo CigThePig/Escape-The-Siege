@@ -1,75 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Escape the Siege — Phase 2.9.3 (hotfix)</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <!-- Title row -->
-  <h1 class="game-title">Escape the Siege — <span class="pill">Phase 2.9.3</span> <small>hotfix</small></h1>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>Escape the Siege — Phase 2.9.7</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Title row -->
+    <h1 class="game-title">
+      Escape the Siege — <span class="pill">Phase 2.9.7</span>
+    </h1>
 
-  <!-- HUD statistics -->
-  <div class="hud">
-    <div class="stat">
-      <span class="label">HP</span>
-      <span class="value" id="hud-hp">10</span>
+    <!-- HUD statistics -->
+    <div class="hud">
+      <div class="stat">
+        <span class="label">HP</span>
+        <span class="value" id="hud-hp">15</span>
+      </div>
+      <div class="stat">
+        <span class="label">Mana</span>
+        <span class="value" id="hud-mana">10</span>
+      </div>
+      <div class="stat">
+        <span class="label">Turn</span>
+        <span class="value" id="hud-turn">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">Enemies</span>
+        <span class="value" id="hud-enemies">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">Next Spawn</span>
+        <span class="value" id="hud-spawn">1</span>
+      </div>
+      <div class="stat">
+        <span class="label">Dash</span>
+        <span class="value" id="hud-dash">Ready</span>
+      </div>
     </div>
-    <div class="stat">
-      <span class="label">Mana</span>
-      <span class="value" id="hud-mana">10</span>
+
+    <!-- Map container -->
+    <div class="map-wrap card">
+      <canvas
+        id="game"
+        width="900"
+        height="900"
+        class="canvas"
+        aria-label="Game board"
+        role="img"
+      ></canvas>
+      <div id="placementPreview" aria-hidden="true"></div>
     </div>
-    <div class="stat">
-      <span class="label">Turn</span>
-      <span class="value" id="hud-turn">0</span>
+
+    <!-- D-pad controls -->
+    <div class="dpad-row" id="dpad">
+      <div></div>
+      <button data-dir="up">▲</button>
+      <div></div>
+      <button data-dir="left">◀</button>
+      <div></div>
+      <button data-dir="right">▶</button>
+      <div></div>
+      <button data-dir="down">▼</button>
+      <div></div>
     </div>
-    <div class="stat">
-      <span class="label">Enemies</span>
-      <span class="value" id="hud-enemies">0</span>
+
+    <!-- Trap carousel -->
+    <div class="trapbar" id="trapbar"></div>
+
+    <!-- Action buttons -->
+    <div class="actions">
+      <button id="btn-place" class="btn primary" disabled>
+        Place Selected
+      </button>
+      <button id="btn-dash" class="btn secondary">Arm Dash</button>
+      <button id="btn-help" class="btn secondary">Help</button>
+      <button id="btn-new" class="btn secondary">New Game</button>
     </div>
-    <div class="stat">
-      <span class="label">Next Spawn</span>
-      <span class="value" id="hud-spawn">4</span>
-    </div>
-    <div class="stat">
-      <span class="label">Dash</span>
-      <span class="value" id="hud-dash">Ready</span>
-    </div>
-  </div>
 
-  <!-- Map container -->
-  <div class="map-wrap card">
-    <canvas id="game" width="900" height="900" class="canvas" aria-label="Game board" role="img"></canvas>
-    <div id="placementPreview" aria-hidden="true"></div>
-  </div>
+    <!-- Collapsible legend -->
+    <details class="legend">
+      <summary>Legend</summary>
+      <div id="legend-items"></div>
+    </details>
 
-  <!-- D-pad controls -->
-  <div class="dpad-row" id="dpad">
-    <div></div><button data-dir="up">▲</button><div></div>
-    <button data-dir="left">◀</button><div></div><button data-dir="right">▶</button>
-    <div></div><button data-dir="down">▼</button><div></div>
-  </div>
+    <!-- Game log -->
+    <div id="log" class="log"></div>
 
-  <!-- Trap carousel -->
-  <div class="trapbar" id="trapbar"></div>
+    <footer class="footer">
+      v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.
+    </footer>
 
-  <!-- Action buttons -->
-  <div class="actions">
-    <button id="btn-place" class="btn primary" disabled>Place Selected</button>
-    <button id="btn-dash" class="btn secondary">Arm Dash</button>
-    <button id="btn-help" class="btn secondary">Help</button>
-    <button id="btn-new" class="btn secondary">New Game</button>
-  </div>
-
-  <!-- Collapsible legend -->
-  <details class="legend"><summary>Legend</summary><div id="legend-items"></div></details>
-
-  <!-- Game log -->
-  <div id="log" class="log"></div>
-
-  <footer class="footer">v2.9.3 hotfix: AI stall fixed, early win check, visible chests, cooldown clamp, no enemy swaps, safer turn handling.</footer>
-
-  <script type="module" src="game.js"></script>
-</body>
+    <script type="module" src="game.js"></script>
+  </body>
 </html>

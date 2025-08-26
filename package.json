@@ -1,9 +1,13 @@
 {
   "name": "escape-the-siege",
-  "version": "1.0.0",
+  "version": "2.9.7",
   "description": "Development test configuration for Escape The Siege",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }
