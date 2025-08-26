@@ -1,4 +1,4 @@
-export const GRID_W=30,GRID_H=30;export const PASSIVE_MANA=1,START_MANA=10,START_HP=10;
+export const GRID_W=90,GRID_H=30,VIEW_W=30;export const PASSIVE_MANA=1,START_MANA=10,START_HP=10;
 export const CHEST_MANA=8;export const COSTS={arrow:9,rune:10,fire:16,spike:6};
 export const TRAP_RANGE=4,TRAP_DMG=2;export const RUNE_RADIUS=1,FIRE_DMG=3,FIRE_RADIUS=3,SAB_EXP_DMG=3,SAB_EXP_RADIUS=3,SPIKE_DMG=8;export const PLACE_RADIUS=4,PLACE_ZOOM=1.4;
 export const ARROW_AMMO=5;export const BURN_TURNS=2,BURN_DMG=1;export const RUNE_SLOW_TURNS=2;
