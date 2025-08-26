@@ -265,6 +265,7 @@ import './enemies.js';
       y = a.y + sy;
     while (x !== b.x || y !== b.y) {
       if (isWall(x, y)) return false;
+      if (sx && sy && isWall(x - sx, y) && isWall(x, y - sy)) return false;
       x += sx;
       y += sy;
     }
@@ -993,6 +994,17 @@ import './enemies.js';
     },
     { passive: true },
   );
+  const DIR_MAP = {
+    up: [0, -1],
+    down: [0, 1],
+    left: [-1, 0],
+    right: [1, 0],
+    'up-left': [-1, -1],
+    'up-right': [1, -1],
+    'down-left': [-1, 1],
+    'down-right': [1, 1],
+  };
+
   function rebuildFlow() {
     const INF = 1e9;
     const dist = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(INF));
@@ -1014,10 +1026,14 @@ import './enemies.js';
       const cur = q.shift();
       const d = dist[cur.y][cur.x] + 1;
       for (let i = 0; i < dirs.length; i++) {
-        const nx = cur.x + dirs[i][0],
-          ny = cur.y + dirs[i][1];
+        const dx = dirs[i][0],
+          dy = dirs[i][1],
+          nx = cur.x + dx,
+          ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
         if (isWall(nx, ny)) continue;
+        if (dx && dy && isWall(cur.x + dx, cur.y) && isWall(cur.x, cur.y + dy))
+          continue;
         if (d < dist[ny][nx]) {
           dist[ny][nx] = d;
           q.push({ x: nx, y: ny });
@@ -1044,6 +1060,7 @@ import './enemies.js';
         const tx = nx + dx,
           ty = ny + dy;
         if (!inBounds(tx, ty) || isWall(tx, ty)) break;
+        if (dx && dy && isWall(nx + dx, ny) && isWall(nx, ny + dy)) break;
         nx = tx;
         ny = ty;
       }
@@ -1061,6 +1078,13 @@ import './enemies.js';
       const nx = state.player.x + dx,
         ny = state.player.y + dy;
       if (!inBounds(nx, ny) || isWall(nx, ny)) return;
+      if (
+        dx &&
+        dy &&
+        isWall(state.player.x + dx, state.player.y) &&
+        isWall(state.player.x, state.player.y + dy)
+      )
+        return;
       state.player.x = nx;
       state.player.y = ny;
     }
@@ -1089,14 +1113,9 @@ import './enemies.js';
     advanceTurn();
   }
   window.onMove = (dir) => {
-    if (dir === 'up') playerMove(0, -1);
-    else if (dir === 'down') playerMove(0, 1);
-    else if (dir === 'left') playerMove(-1, 0);
-    else if (dir === 'right') playerMove(1, 0);
-    else if (dir === 'up-left') playerMove(-1, -1);
-    else if (dir === 'up-right') playerMove(1, -1);
-    else if (dir === 'down-left') playerMove(-1, 1);
-    else if (dir === 'down-right') playerMove(1, 1);
+    const d = DIR_MAP[dir];
+    if (!d) return;
+    playerMove(d[0], d[1]);
   };
   function tryPlace(x, y) {
     const t = state.selectedTool,
@@ -1298,10 +1317,20 @@ import './enemies.js';
       const key = cur.x + ',' + cur.y;
       if (key === goalKey) break;
       for (const d of dirs) {
-        const nx = cur.x + d[0],
-          ny = cur.y + d[1];
+        const dx = d[0],
+          dy = d[1],
+          nx = cur.x + dx,
+          ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
         if (!allowPhase && isWall(nx, ny)) continue;
+        if (
+          dx &&
+          dy &&
+          !allowPhase &&
+          isWall(cur.x + dx, cur.y) &&
+          isWall(cur.x, cur.y + dy)
+        )
+          continue;
         const nk = nx + ',' + ny;
         if (seen.has(nk)) continue;
         if (occupied.has(nk) && nk !== goalKey) continue;
@@ -1334,9 +1363,18 @@ import './enemies.js';
     ];
     const goals = [];
     for (const d of dirs) {
-      const tx = base.x + d[0],
-        ty = base.y + d[1];
+      const dx = d[0],
+        dy = d[1],
+        tx = base.x + dx,
+        ty = base.y + dy;
       if (!inBounds(tx, ty) || isWall(tx, ty)) continue;
+      if (
+        dx &&
+        dy &&
+        isWall(base.x + dx, base.y) &&
+        isWall(base.x, base.y + dy)
+      )
+        continue;
       const key = tx + ',' + ty;
       if (!occupied.has(key)) goals.push({ x: tx, y: ty });
     }
