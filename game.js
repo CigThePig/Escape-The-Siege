@@ -253,38 +253,35 @@ import './enemies.js';
     return a;
   }
 
-  function lineOfSightRowCol(a, b) {
-    if (a.x === b.x) {
-      const x = a.x;
-      const y1 = Math.min(a.y, b.y) + 1,
-        y2 = Math.max(a.y, b.y);
-      for (let y = y1; y < y2; y++) if (isWall(x, y)) return false;
-      return true;
-    } else if (a.y === b.y) {
-      const y = a.y;
-      const x1 = Math.min(a.x, b.x) + 1,
-        x2 = Math.max(a.x, b.x);
-      for (let x = x1; x < x2; x++) if (isWall(x, y)) return false;
-      return true;
+  function lineOfSight8(a, b) {
+    const dx = b.x - a.x,
+      dy = b.y - a.y,
+      adx = Math.abs(dx),
+      ady = Math.abs(dy);
+    if (!(a.x === b.x || a.y === b.y || adx === ady)) return false;
+    const sx = Math.sign(dx),
+      sy = Math.sign(dy);
+    let x = a.x + sx,
+      y = a.y + sy;
+    while (x !== b.x || y !== b.y) {
+      if (isWall(x, y)) return false;
+      if (sx && sy && isWall(x - sx, y) && isWall(x, y - sy)) return false;
+      x += sx;
+      y += sy;
     }
-    return false;
+    return true;
   }
   function clearShotToPlayer(from, ignore = null) {
-    if (!lineOfSightRowCol(from, state.player)) return false;
-    if (from.x === state.player.x) {
-      const x = from.x,
-        y1 = Math.min(from.y, state.player.y) + 1,
-        y2 = Math.max(from.y, state.player.y);
-      for (let y = y1; y < y2; y++)
-        if (state.enemies.some((e) => e !== ignore && e.x === x && e.y === y))
-          return false;
-    } else if (from.y === state.player.y) {
-      const y = from.y,
-        x1 = Math.min(from.x, state.player.x) + 1,
-        x2 = Math.max(from.x, state.player.x);
-      for (let x = x1; x < x2; x++)
-        if (state.enemies.some((e) => e !== ignore && e.x === x && e.y === y))
-          return false;
+    if (!lineOfSight8(from, state.player)) return false;
+    const dx = Math.sign(state.player.x - from.x),
+      dy = Math.sign(state.player.y - from.y);
+    let x = from.x + dx,
+      y = from.y + dy;
+    while (x !== state.player.x || y !== state.player.y) {
+      if (state.enemies.some((e) => e !== ignore && e.x === x && e.y === y))
+        return false;
+      x += dx;
+      y += dy;
     }
     return true;
   }
@@ -530,7 +527,7 @@ import './enemies.js';
     for (let y = cy - r; y <= cy + r; y++) {
       for (let x = cx - r; x <= cx + r; x++) {
         if (!inBounds(x, y)) continue;
-        if (Math.abs(cx - x) + Math.abs(cy - y) <= r)
+        if (Math.max(Math.abs(cx - x), Math.abs(cy - y)) <= r)
           drawOutlineRect(x, y, color, 0.18);
       }
     }
@@ -555,8 +552,10 @@ import './enemies.js';
   function updateDrops() {
     const next = [];
     for (const d of state.drops) {
-      const dist =
-        Math.abs(d.x - state.player.x) + Math.abs(d.y - state.player.y);
+      const dist = Math.max(
+        Math.abs(d.x - state.player.x),
+        Math.abs(d.y - state.player.y),
+      );
       if (dist <= 5 && dist > 0) {
         const dx = state.player.x > d.x ? 1 : state.player.x < d.x ? -1 : 0;
         const dy = state.player.y > d.y ? 1 : state.player.y < d.y ? -1 : 0;
@@ -977,13 +976,35 @@ import './enemies.js';
       const t = e.changedTouches[0];
       const dx = t.clientX - swipeStart.x,
         dy = t.clientY - swipeStart.y;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 24)
-        window.onMove(dx > 0 ? 'right' : 'left');
-      else if (Math.abs(dy) > 24) window.onMove(dy > 0 ? 'down' : 'up');
+      const ax = Math.abs(dx),
+        ay = Math.abs(dy);
+      if (ax > 24 && ay > 24)
+        window.onMove(
+          dy > 0
+            ? dx > 0
+              ? 'down-right'
+              : 'down-left'
+            : dx > 0
+              ? 'up-right'
+              : 'up-left',
+        );
+      else if (ax > ay && ax > 24) window.onMove(dx > 0 ? 'right' : 'left');
+      else if (ay > 24) window.onMove(dy > 0 ? 'down' : 'up');
       swipeStart = null;
     },
     { passive: true },
   );
+  const DIR_MAP = {
+    up: [0, -1],
+    down: [0, 1],
+    left: [-1, 0],
+    right: [1, 0],
+    'up-left': [-1, -1],
+    'up-right': [1, -1],
+    'down-left': [-1, 1],
+    'down-right': [1, 1],
+  };
+
   function rebuildFlow() {
     const INF = 1e9;
     const dist = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(INF));
@@ -996,15 +1017,23 @@ import './enemies.js';
       [-1, 0],
       [0, 1],
       [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ];
     while (q.length) {
       const cur = q.shift();
       const d = dist[cur.y][cur.x] + 1;
-      for (let i = 0; i < 4; i++) {
-        const nx = cur.x + dirs[i][0],
-          ny = cur.y + dirs[i][1];
+      for (let i = 0; i < dirs.length; i++) {
+        const dx = dirs[i][0],
+          dy = dirs[i][1],
+          nx = cur.x + dx,
+          ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
         if (isWall(nx, ny)) continue;
+        if (dx && dy && isWall(cur.x + dx, cur.y) && isWall(cur.x, cur.y + dy))
+          continue;
         if (d < dist[ny][nx]) {
           dist[ny][nx] = d;
           q.push({ x: nx, y: ny });
@@ -1031,6 +1060,7 @@ import './enemies.js';
         const tx = nx + dx,
           ty = ny + dy;
         if (!inBounds(tx, ty) || isWall(tx, ty)) break;
+        if (dx && dy && isWall(nx + dx, ny) && isWall(nx, ny + dy)) break;
         nx = tx;
         ny = ty;
       }
@@ -1048,6 +1078,13 @@ import './enemies.js';
       const nx = state.player.x + dx,
         ny = state.player.y + dy;
       if (!inBounds(nx, ny) || isWall(nx, ny)) return;
+      if (
+        dx &&
+        dy &&
+        isWall(state.player.x + dx, state.player.y) &&
+        isWall(state.player.x, state.player.y + dy)
+      )
+        return;
       state.player.x = nx;
       state.player.y = ny;
     }
@@ -1076,10 +1113,9 @@ import './enemies.js';
     advanceTurn();
   }
   window.onMove = (dir) => {
-    if (dir === 'up') playerMove(0, -1);
-    else if (dir === 'down') playerMove(0, 1);
-    else if (dir === 'left') playerMove(-1, 0);
-    else if (dir === 'right') playerMove(1, 0);
+    const d = DIR_MAP[dir];
+    if (!d) return;
+    playerMove(d[0], d[1]);
   };
   function tryPlace(x, y) {
     const t = state.selectedTool,
@@ -1109,7 +1145,10 @@ import './enemies.js';
     if (isChest(x, y)) return { ok: false, reason: 'chest tile' };
     if (state.player.x === x && state.player.y === y)
       return { ok: false, reason: 'on player' };
-    const dist = Math.abs(state.player.x - x) + Math.abs(state.player.y - y);
+    const dist = Math.max(
+      Math.abs(state.player.x - x),
+      Math.abs(state.player.y - y),
+    );
     if (dist > PLACE_RADIUS)
       return {
         ok: false,
@@ -1158,12 +1197,8 @@ import './enemies.js';
           bestD = 1e9;
         for (const e of state.enemies) {
           if (e.kind === 'saboteur') continue;
-          const d = Math.abs(t.x - e.x) + Math.abs(t.y - e.y);
-          if (
-            d <= TRAP_RANGE &&
-            (t.x === e.x || t.y === e.y) &&
-            lineOfSightRowCol(t, e)
-          ) {
+          const d = Math.max(Math.abs(t.x - e.x), Math.abs(t.y - e.y));
+          if (d <= TRAP_RANGE && lineOfSight8(t, e)) {
             if (d < bestD) {
               best = e;
               bestD = d;
@@ -1268,6 +1303,10 @@ import './enemies.js';
       [-1, 0],
       [0, 1],
       [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ];
     const q = [start];
     const prev = {};
@@ -1278,10 +1317,20 @@ import './enemies.js';
       const key = cur.x + ',' + cur.y;
       if (key === goalKey) break;
       for (const d of dirs) {
-        const nx = cur.x + d[0],
-          ny = cur.y + d[1];
+        const dx = d[0],
+          dy = d[1],
+          nx = cur.x + dx,
+          ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
         if (!allowPhase && isWall(nx, ny)) continue;
+        if (
+          dx &&
+          dy &&
+          !allowPhase &&
+          isWall(cur.x + dx, cur.y) &&
+          isWall(cur.x, cur.y + dy)
+        )
+          continue;
         const nk = nx + ',' + ny;
         if (seen.has(nk)) continue;
         if (occupied.has(nk) && nk !== goalKey) continue;
@@ -1307,12 +1356,25 @@ import './enemies.js';
       [-1, 0],
       [0, 1],
       [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ];
     const goals = [];
     for (const d of dirs) {
-      const tx = base.x + d[0],
-        ty = base.y + d[1];
+      const dx = d[0],
+        dy = d[1],
+        tx = base.x + dx,
+        ty = base.y + dy;
       if (!inBounds(tx, ty) || isWall(tx, ty)) continue;
+      if (
+        dx &&
+        dy &&
+        isWall(base.x + dx, base.y) &&
+        isWall(base.x, base.y + dy)
+      )
+        continue;
       const key = tx + ',' + ty;
       if (!occupied.has(key)) goals.push({ x: tx, y: ty });
     }
@@ -1325,7 +1387,10 @@ import './enemies.js';
         e.cooldown--;
         return false;
       }
-      const d = Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y);
+      const d = Math.max(
+        Math.abs(e.x - state.player.x),
+        Math.abs(e.y - state.player.y),
+      );
       if (d <= ENEMY.archer.range && clearShotToPlayer(e, e)) {
         addProjectileFX(
           'projectile',
@@ -1344,7 +1409,10 @@ import './enemies.js';
       }
       return false;
     } else {
-      const d = Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y);
+      const d = Math.max(
+        Math.abs(e.x - state.player.x),
+        Math.abs(e.y - state.player.y),
+      );
       const dmg = ENEMY[e.kind]?.touch || 0;
       if (d === 1 && dmg > 0) {
         state.hp -= dmg;
@@ -1364,6 +1432,10 @@ import './enemies.js';
       [-1, 0],
       [0, 1],
       [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ];
     let best = null;
     for (const d of dirs) {
@@ -1373,8 +1445,10 @@ import './enemies.js';
       const nk = nx + ',' + ny;
       if (occupied.has(nk)) continue;
       if (state.towers.some((t) => t.x === nx && t.y === ny)) continue;
-      const dist =
-        Math.abs(nx - state.player.x) + Math.abs(ny - state.player.y);
+      const dist = Math.max(
+        Math.abs(nx - state.player.x),
+        Math.abs(ny - state.player.y),
+      );
       const shot =
         dist <= ENEMY.archer.range && clearShotToPlayer({ x: nx, y: ny }, e);
       const score = Math.abs(dist - ENEMY.archer.range) + (shot ? 0 : 1);
@@ -1393,7 +1467,8 @@ import './enemies.js';
     let base = { x: state.player.x, y: state.player.y };
     if (
       state.lastMove &&
-      Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y) > 4
+      Math.max(Math.abs(e.x - state.player.x), Math.abs(e.y - state.player.y)) >
+        4
     ) {
       const px = state.player.x + state.lastMove.dx,
         py = state.player.y + state.lastMove.dy;
@@ -1472,15 +1547,17 @@ import './enemies.js';
   function saboteurExplode(s) {
     for (const other of state.enemies) {
       if (other === s) continue;
-      const d = Math.abs(other.x - s.x) + Math.abs(other.y - s.y);
+      const d = Math.max(Math.abs(other.x - s.x), Math.abs(other.y - s.y));
       if (d <= SAB_EXP_RADIUS) {
         other.hp -= SAB_EXP_DMG;
         addFX('hit', other.x, other.y);
       }
     }
     if (
-      Math.abs(state.player.x - s.x) + Math.abs(state.player.y - s.y) <=
-      SAB_EXP_RADIUS
+      Math.max(
+        Math.abs(state.player.x - s.x),
+        Math.abs(state.player.y - s.y),
+      ) <= SAB_EXP_RADIUS
     ) {
       state.hp -= SAB_EXP_DMG;
       flashHP();
@@ -1581,7 +1658,10 @@ import './enemies.js';
   function pickSpawnPos() {
     const minR = SPAWN_MIN_RADIUS;
     const ring = state.map.spawners.filter((s) => {
-      const d = Math.abs(s.x - state.player.x) + Math.abs(s.y - state.player.y);
+      const d = Math.max(
+        Math.abs(s.x - state.player.x),
+        Math.abs(s.y - state.player.y),
+      );
       return d >= Math.max(8, minR) && d <= 18;
     });
     const behindRing = ring.filter((s) => s.x <= state.player.x - 2);
@@ -1591,7 +1671,10 @@ import './enemies.js';
         ? ring
         : state.map.spawners;
     const candidates = pool1.filter((p) => {
-      const d = Math.abs(p.x - state.player.x) + Math.abs(p.y - state.player.y);
+      const d = Math.max(
+        Math.abs(p.x - state.player.x),
+        Math.abs(p.y - state.player.y),
+      );
       return (
         d >= minR &&
         !(p.x === state.player.x && p.y === state.player.y) &&
@@ -1603,7 +1686,10 @@ import './enemies.js';
     let best = null,
       bestD = -1;
     for (const p of state.map.spawners) {
-      const d = Math.abs(p.x - state.player.x) + Math.abs(p.y - state.player.y);
+      const d = Math.max(
+        Math.abs(p.x - state.player.x),
+        Math.abs(p.y - state.player.y),
+      );
       if (d >= minR && d > bestD) {
         best = p;
         bestD = d;
@@ -1634,7 +1720,10 @@ import './enemies.js';
     const nearCount = state.enemies.reduce(
       (n, e) =>
         n +
-        (Math.abs(e.x - state.player.x) + Math.abs(e.y - state.player.y) <= 4
+        (Math.max(
+          Math.abs(e.x - state.player.x),
+          Math.abs(e.y - state.player.y),
+        ) <= 4
           ? 1
           : 0),
       0,
