@@ -1,4 +1,4 @@
-import{GRID_W,GRID_H,VIEW_W,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SAB_EXP_DMG,SAB_EXP_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,FIRE_AMMO,RUNE_TURNS,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,COLORS}from './constants.js';
+import{GRID_W,GRID_H,VIEW_W,PASSIVE_MANA,START_MANA,START_HP,CHEST_MANA,COSTS,TRAP_RANGE,TRAP_DMG,RUNE_RADIUS,FIRE_DMG,FIRE_RADIUS,SAB_EXP_DMG,SAB_EXP_RADIUS,SPIKE_DMG,PLACE_RADIUS,PLACE_ZOOM,ARROW_AMMO,FIRE_AMMO,RUNE_TURNS,BURN_TURNS,BURN_DMG,RUNE_SLOW_TURNS,DASH_CD,DASH_COST,DENSITY_TILE_WEIGHT,DENSITY_NEIGHBOR_WEIGHT,PATIENCE_PROB,PATROL_RADIUS,ENEMY,baseSpawnCooldown,baseSpawnCount,ENEMY_CAP,CHESTS_PER_RUN,SPAWN_MIN_RADIUS,NODE_ENEMY_CAP_INCR,COLORS}from './constants.js';
 import './ui.js';
 import { buildMap } from './map.js';
 import './enemies.js';
@@ -24,7 +24,7 @@ function updateHUD(st=state){hud.hp.textContent=st.hp|0;hud.turn.textContent=st.
 
 function updateCamera(){state.cameraX=Math.max(0,Math.min(state.player.x-Math.floor(VIEW_W/2),GRID_W-VIEW_W));state.cameraY=0;}
 
-const LEGEND_DATA=[['Wall',COLORS.wall],['Floor',COLORS.floor],['Entrance',COLORS.start],['Exit',COLORS.exit],['Spawner',COLORS.spawner],['Chest',COLORS.chest],['Goblin',COLORS.enemyGoblin],['Archer',COLORS.enemyArcher],['Wraith',COLORS.enemyWraith],['Brute',COLORS.enemyBrute],['Saboteur',COLORS.enemySaboteur],['Hunter',COLORS.enemyHunter]];
+const LEGEND_DATA=[['Wall',COLORS.wall],['Floor',COLORS.floor],['Entrance',COLORS.start],['Exit',COLORS.exit],['Node',COLORS.nodeIdle],['Spawner',COLORS.spawner],['Chest',COLORS.chest],['Goblin',COLORS.enemyGoblin],['Archer',COLORS.enemyArcher],['Wraith',COLORS.enemyWraith],['Brute',COLORS.enemyBrute],['Saboteur',COLORS.enemySaboteur],['Hunter',COLORS.enemyHunter]];
 
 
 
@@ -32,6 +32,7 @@ function inBounds(x,y){return x>=0&&x<GRID_W&&y>=0&&y<GRID_H}function samePos(a,
 function tileToScreen(x,y,useCam=true){const cx=useCam?state.cameraX:0,cy=useCam?state.cameraY:0;return{sx:(x-cx)*tileSize,sy:(y-cy)*tileSize}}function isWall(x,y){return state.map.grid[y][x]===1}
 function isSpawner(x,y){return state.map.spawners.some(s=>s.x===x&&s.y===y)}function isChest(x,y){return state.map.chests.some(c=>!c.opened&&c.x===x&&c.y===y)}
 function isStart(x,y){return state.map.start.x===x&&state.map.start.y===y}function isExit(x,y){return state.map.exit.x===x&&state.map.exit.y===y}
+function inNode(node,x,y){return x>=node.x&&x<node.x+node.size&&y>=node.y&&y<node.y+node.size}
 function logMsg(m){const p=document.createElement('p');p.textContent=m;hud.log.appendChild(p);hud.log.scrollTop=hud.log.scrollHeight}
 function clearLog(){hud.log.innerHTML=""}function rndShuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 
@@ -39,7 +40,27 @@ function lineOfSightRowCol(a,b){if(a.x===b.x){const x=a.x;const y1=Math.min(a.y,
 function clearShotToPlayer(from,ignore=null){if(!lineOfSightRowCol(from,state.player))return false;if(from.x===state.player.x){const x=from.x,y1=Math.min(from.y,state.player.y)+1,y2=Math.max(from.y,state.player.y);for(let y=y1;y<y2;y++)if(state.enemies.some(e=>e!==ignore&&e.x===x&&e.y===y))return false}else if(from.y===state.player.y){const y=from.y,x1=Math.min(from.x,state.player.x)+1,x2=Math.max(from.x,state.player.x);for(let x=x1;x<x2;x++)if(state.enemies.some(e=>e!==ignore&&e.x===x&&e.y===y))return false}return true}
 function ensureOffscreen(){if(!terrainCanvas){terrainCanvas=document.createElement('canvas');terrainCtx=terrainCanvas.getContext('2d',{alpha:false})||terrainCanvas.getContext('2d')}const w=Math.floor(tileSize*GRID_W),h=Math.floor(tileSize*GRID_H);if(terrainCanvas.width!==w||terrainCanvas.height!==h){terrainCanvas.width=w;terrainCanvas.height=h;terrainCtx.setTransform(1,0,0,1,0,0);terrainValid=false}}
 function drawWallTileTo(tctx,x,y){const {sx,sy}=tileToScreen(x,y,false);tctx.fillStyle=COLORS.wall;tctx.fillRect(sx,sy,tileSize,tileSize);tctx.strokeStyle=COLORS.wallEdge;tctx.lineWidth=Math.max(1,tileSize*.06);tctx.strokeRect(sx+.5,sy+.5,tileSize-1,tileSize-1);tctx.save();tctx.beginPath();tctx.rect(sx+1,sy+1,tileSize-2,tileSize-2);tctx.clip();tctx.strokeStyle='rgba(255,255,255,.06)';tctx.lineWidth=Math.max(1,tileSize*.05);const step=Math.max(4,tileSize/4);for(let k=-tileSize;k<tileSize*2;k+=step){tctx.beginPath();tctx.moveTo(sx+k,sy);tctx.lineTo(sx,sy+k);tctx.stroke()}tctx.restore()}
-function drawTerrainAll(){terrainCtx.clearRect(0,0,terrainCanvas.width,terrainCanvas.height);for(let y=0;y<GRID_H;y++)for(let x=0;x<GRID_W;x++){if(isWall(x,y))drawWallTileTo(terrainCtx,x,y);else{const {sx,sy}=tileToScreen(x,y,false);terrainCtx.fillStyle=COLORS.floor;terrainCtx.fillRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2)}}drawOutlineRectTo(terrainCtx,state.map.start.x,state.map.start.y,COLORS.start,.35,false);drawOutlineRectTo(terrainCtx,state.map.exit.x,state.map.exit.y,COLORS.exit,.35,false);for(const s of state.map.spawners)drawOutlineRectTo(terrainCtx,s.x,s.y,COLORS.spawner,.35,false);for(const c of state.map.chests)if(!c.opened){drawOutlineRectTo(terrainCtx,c.x,c.y,COLORS.chest,.45,false);const {sx,sy}=tileToScreen(c.x,c.y,false);const s2=Math.max(4,tileSize*.35);terrainCtx.fillStyle=COLORS.chest;terrainCtx.fillRect(sx+(tileSize-s2)/2,sy+(tileSize-s2)/2,s2,s2)}terrainValid=true}
+function drawTerrainAll(){
+    terrainCtx.clearRect(0,0,terrainCanvas.width,terrainCanvas.height);
+    for(let y=0;y<GRID_H;y++)for(let x=0;x<GRID_W;x++){
+        if(isWall(x,y))drawWallTileTo(terrainCtx,x,y);
+        else{const {sx,sy}=tileToScreen(x,y,false);terrainCtx.fillStyle=COLORS.floor;terrainCtx.fillRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2)}}
+    drawOutlineRectTo(terrainCtx,state.map.start.x,state.map.start.y,COLORS.start,.35,false);
+    drawOutlineRectTo(terrainCtx,state.map.exit.x,state.map.exit.y,COLORS.exit,.35,false);
+    for(const s of state.map.spawners)drawOutlineRectTo(terrainCtx,s.x,s.y,COLORS.spawner,.35,false);
+    for(const c of state.map.chests)if(!c.opened){drawOutlineRectTo(terrainCtx,c.x,c.y,COLORS.chest,.45,false);const {sx,sy}=tileToScreen(c.x,c.y,false);const s2=Math.max(4,tileSize*.35);terrainCtx.fillStyle=COLORS.chest;terrainCtx.fillRect(sx+(tileSize-s2)/2,sy+(tileSize-s2)/2,s2,s2)}
+    for(const n of state.map.nodes){
+        const col=n.progress>=n.max?COLORS.nodeCaptured:(n.capturing?COLORS.nodeCapturing:COLORS.nodeIdle);
+        for(let yy=n.y;yy<n.y+n.size;yy++){
+            for(let xx=n.x;xx<n.x+n.size;xx++){
+                const {sx,sy}=tileToScreen(xx,yy,false);
+                terrainCtx.fillStyle=col;
+                terrainCtx.fillRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2);
+            }
+        }
+    }
+    terrainValid=true;
+}
 function drawOutlineRectTo(tctx,x,y,color,alpha=.28,useCam=true){const {sx,sy}=tileToScreen(x,y,useCam);tctx.save();tctx.globalAlpha=alpha;tctx.strokeStyle=color;tctx.setLineDash([4,3]);tctx.lineWidth=Math.max(1,tileSize*.06);tctx.strokeRect(sx+tilePad,sy+tilePad,tileSize-tilePad*2,tileSize-tilePad*2);tctx.restore()}
 function drawOutlineRect(x,y,c,a){drawOutlineRectTo(ctx,x,y,c,a)}
 function drawHPBar(x,y,ratio){const {sx,sy}=tileToScreen(x,y);const w=tileSize-tilePad*2,h=Math.max(3,tileSize*.09);const bx=sx+tilePad,by=sy+tilePad*.7;ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,w,h);ctx.fillStyle=ratio>.5?'#22c55e':(ratio>.25?'#f59e0b':'#ef4444');ctx.fillRect(bx,by,w*ratio,h)}
@@ -144,12 +165,12 @@ canvas.addEventListener('touchstart',e=>{const t=e.changedTouches[0];swipeStart=
 canvas.addEventListener('touchend',e=>{if(!swipeStart)return;const t=e.changedTouches[0];const dx=t.clientX-swipeStart.x,dy=t.clientY-swipeStart.y;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>24)window.onMove(dx>0?'right':'left');else if(Math.abs(dy)>24)window.onMove(dy>0?'down':'up');swipeStart=null;},{passive:true});
 function rebuildFlow(){const INF=1e9;const dist=Array.from({length:GRID_H},()=>Array(GRID_W).fill(INF));const q=[];const start={x:state.player.x,y:state.player.y};dist[start.y][start.x]=0;q.push(start);const dirs=[[1,0],[-1,0],[0,1],[0,-1]];while(q.length){const cur=q.shift();const d=dist[cur.y][cur.x]+1;for(let i=0;i<4;i++){const nx=cur.x+dirs[i][0],ny=cur.y+dirs[i][1];if(!inBounds(nx,ny))continue;if(isWall(nx,ny))continue;if(d<dist[ny][nx]){dist[ny][nx]=d;q.push({x:nx,y:ny})}}}state.flowDist=dist;state.flowDirty=false}
 
-function playerMove(dx,dy,useDashKey=false){if(state.won||state.lost)return;const px=state.player.x,py=state.player.y;let didDash=false;if((state.dashArmed||useDashKey)&&state.dashCD===0&&state.mana>=DASH_COST){let nx=state.player.x,ny=state.player.y;for(let step=0;step<2;step++){const tx=nx+dx,ty=ny+dy;if(!inBounds(tx,ty)||isWall(tx,ty))break;nx=tx;ny=ty}if(nx!==state.player.x||ny!==state.player.y){state.player.x=nx;state.player.y=ny;state.mana-=DASH_COST;state.dashCD=DASH_CD;state.dashArmed=false;didDash=true;logMsg('Dashed!')}}if(!didDash){const nx=state.player.x+dx,ny=state.player.y+dy;if(!inBounds(nx,ny)||isWall(nx,ny))return;state.player.x=nx;state.player.y=ny}const mdx=state.player.x-px,mdy=state.player.y-py;if(mdx||mdy)state.lastMove={dx:mdx,dy:mdy};for(const c of state.map.chests){if(!c.opened&&samePos(c,state.player)){c.opened=true;state.mana+=CHEST_MANA;terrainValid=false;logMsg(`Opened chest: +${CHEST_MANA} mana.`)}}updateCamera();if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y){state.won=true;updateHUD();return}state.flowDirty=true;advanceTurn()}
+function playerMove(dx,dy,useDashKey=false){if(state.won||state.lost)return;const px=state.player.x,py=state.player.y;let didDash=false;if((state.dashArmed||useDashKey)&&state.dashCD===0&&state.mana>=DASH_COST){let nx=state.player.x,ny=state.player.y;for(let step=0;step<2;step++){const tx=nx+dx,ty=ny+dy;if(!inBounds(tx,ty)||isWall(tx,ty))break;nx=tx;ny=ty}if(nx!==state.player.x||ny!==state.player.y){state.player.x=nx;state.player.y=ny;state.mana-=DASH_COST;state.dashCD=DASH_CD;state.dashArmed=false;didDash=true;logMsg('Dashed!')}}if(!didDash){const nx=state.player.x+dx,ny=state.player.y+dy;if(!inBounds(nx,ny)||isWall(nx,ny))return;state.player.x=nx;state.player.y=ny}const mdx=state.player.x-px,mdy=state.player.y-py;if(mdx||mdy)state.lastMove={dx:mdx,dy:mdy};for(const c of state.map.chests){if(!c.opened&&samePos(c,state.player)){c.opened=true;state.mana+=CHEST_MANA;terrainValid=false;logMsg(`Opened chest: +${CHEST_MANA} mana.`)}}updateCamera();if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y&&state.map.nodes.every(n=>n.captured)){state.won=true;updateHUD();return}state.flowDirty=true;advanceTurn()}
 window.onMove=(dir)=>{if(dir==='up')playerMove(0,-1);else if(dir==='down')playerMove(0,1);else if(dir==='left')playerMove(-1,0);else if(dir==='right')playerMove(1,0);};
 function tryPlace(x,y){const t=state.selectedTool,cost=COSTS[t];state.mana-=cost;if(state.ammo[t]!==Infinity)state.ammo[t]--;if(t==='arrow')state.towers.push({x,y,type:t,ammo:ARROW_AMMO});else if(t==='fire')state.towers.push({x,y,type:t,ammo:FIRE_AMMO});else if(t==='rune')state.towers.push({x,y,type:t,ammo:RUNE_TURNS});else state.towers.push({x,y,type:t});state.placeMode=false;state.hover=null;logMsg(`Placed ${t} at (${x},${y}).`);updateMana(state.mana);if(t==='spike'){state.spikePlaced=true;}else advanceTurn()}
 function isValidPlacement(x,y){if(!inBounds(x,y))return{ok:false,reason:'out of bounds'};if(isWall(x,y))return{ok:false,reason:'wall tile'};if(isStart(x,y)||isExit(x,y))return{ok:false,reason:'reserved tile'};if(isSpawner(x,y))return{ok:false,reason:'spawner tile'};if(isChest(x,y))return{ok:false,reason:'chest tile'};if(state.player.x===x&&state.player.y===y)return{ok:false,reason:'on player'};const dist=Math.abs(state.player.x-x)+Math.abs(state.player.y-y);if(dist>PLACE_RADIUS)return{ok:false,reason:`must place within ${PLACE_RADIUS} tiles of player`};if(state.towers.some(t=>t.x===x&&t.y===y))return{ok:false,reason:'occupied by a trap'};if(state.selectedTool==='spike'&&state.spikePlaced)return{ok:false,reason:'only one spike per turn'};const cost=COSTS[state.selectedTool];if(state.mana<cost)return{ok:false,reason:`need ${cost} mana`};return{ok:true}}
 function flashHP(){hud.hpCard.classList.add('flash');setTimeout(()=>hud.hpCard.classList.remove('flash'),250)}
-function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.spikePlaced=false;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();checkWinLose();updateHUD()}
+function advanceTurn(){if(state.won||state.lost)return;state.turn+=1;state.spikePlaced=false;state.mana+=PASSIVE_MANA;if(state.dashCD>0)state.dashCD-=1;towersAct();enemiesPreEffects();try{enemiesAct()}catch(err){logMsg(`AI error: ${err.message}`)}handleSpawns();updateNodes();checkWinLose();updateHUD()}
 function rewardFor(k){return ENEMY[k]?.reward||0}
 function towersAct(){
     if(!state.towers.length)return;
@@ -333,7 +354,7 @@ function handleSpawns(){
     if(nearCount>=5){state.nextSpawn=Math.max(state.nextSpawn,2);return}
     state.nextSpawn-=1;
     if(state.nextSpawn<=0){
-        const free=ENEMY_CAP-state.enemies.length;
+        const free=state.enemyCap-state.enemies.length;
         if(free>0){
             const progress=state.player.x/(GRID_W-1);
             const desired=Math.min(spawnCount(state.turn,progress),free);
@@ -355,8 +376,38 @@ function handleSpawns(){
     }
     if(state.turn>0&&state.turn%20===0)spawnBoss();
 }
-function checkWinLose(){if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y){state.won=true;logMsg('You reached the exit. Victory!')}if(state.hp<=0){state.lost=true;logMsg('You have fallen...')}}
-function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false,lastMove:{dx:0,dy:0},ammo:{arrow:Infinity,rune:Infinity,fire:Infinity,spike:Infinity},cameraX:0,cameraY:0,spikePlaced:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateCamera();renderTrapbar(TRAP_DEFS,state);TRAP_DEFS.forEach(t=>setCooldown(t.id,0,1));updateHUD();}
+function updateNodes(){
+    let changed=false;
+    for(const n of state.map.nodes){
+        const playerOn=inNode(n,state.player.x,state.player.y);
+        const enemyOn=state.enemies.some(e=>inNode(n,e.x,e.y));
+        const capturing=playerOn&&!enemyOn&&!n.captured;
+        if(capturing){
+            const before=n.progress;
+            n.progress=Math.min(n.max,n.progress+1);
+            if(n.progress!==before)changed=true;
+            if(n.progress===n.max&&!n.captured){
+                n.captured=true;
+                state.enemyCap+=NODE_ENEMY_CAP_INCR;
+                logMsg('Node secured! Enemy capacity increased by 10.');
+                changed=true;
+            }
+        }
+        if(n.capturing!==capturing){n.capturing=capturing;changed=true;}
+    }
+    if(changed)terrainValid=false;
+}
+function checkWinLose(){
+    if(state.player.x===state.map.exit.x&&state.player.y===state.map.exit.y){
+        if(state.map.nodes.every(n=>n.captured)){
+            state.won=true;logMsg('You reached the exit. Victory!');
+        }else if(!state.exitWarned){
+            logMsg('Capture all nodes to unlock the exit.');
+            state.exitWarned=true;
+        }
+    }else state.exitWarned=false;
+    if(state.hp<=0){state.lost=true;logMsg('You have fallen...')}}
+function resetState(){const map=buildMap();state={map,turn:0,hp:START_HP,mana:START_MANA,nextSpawn:1,player:{x:map.start.x,y:map.start.y},enemies:[],towers:[],visited:Array.from({length:GRID_H},()=>Array(GRID_W).fill(false)),placeMode:false,selectedTool:'arrow',won:false,lost:false,fx:[],hover:null,flowDist:null,flowDirty:true,dashCD:0,dashArmed:false,lastMove:{dx:0,dy:0},ammo:{arrow:Infinity,rune:Infinity,fire:Infinity,spike:Infinity},cameraX:0,cameraY:0,spikePlaced:false,enemyCap:ENEMY_CAP,exitWarned:false};state.visited[state.player.y][state.player.x]=true;clearLog();logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');const rect=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);tileSize=rect.width/VIEW_W;tilePad=Math.max(1,Math.floor(tileSize*.03));ensureOffscreen();terrainValid=false;updateCamera();renderTrapbar(TRAP_DEFS,state);TRAP_DEFS.forEach(t=>setCooldown(t.id,0,1));updateHUD();}
 
 
 
