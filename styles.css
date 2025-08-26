@@ -58,14 +58,14 @@ body{
 
 /* Trap bar */
 .trapbar{display:flex;gap:var(--gap);overflow-x:auto;padding:var(--gap);}
-.trap{flex:0 0 160px;background:var(--panel);border-radius:var(--radius);padding:var(--gap);position:relative;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px;}
+.trap{flex:0 0 160px;background:var(--panel);border-radius:var(--radius);padding:var(--gap);position:relative;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px;color:var(--text);}
 .trap .name{font-weight:600;display:flex;justify-content:space-between;}
 .trap .meta{display:flex;justify-content:space-between;font-size:14px;}
 .trap .meta .cost{color:var(--muted);}
 .trap .meta .stock{font-family:monospace;}
 .trap .cool{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);width:0%;border-bottom-left-radius:var(--radius);border-bottom-right-radius:var(--radius);}
 .trap.active{outline:2px solid var(--accent);}
-.trap.insuf{opacity:.6;}
+.trap.insuf{opacity:.6;color:#000;}
 .trap.insuf .cost{color:var(--warn);}
 
 /* Buttons */
