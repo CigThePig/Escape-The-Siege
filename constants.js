@@ -1,5 +1,6 @@
 export const GRID_W = 90,
   GRID_H = 30,
+  GRID_D = 3,
   VIEW_W = 21;
 export const PASSIVE_MANA = 1,
   START_MANA = 10,
