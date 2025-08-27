@@ -74,8 +74,9 @@ import * as THREE from './lib/three.module.js';
     0.1,
     1000,
   );
-  camera.up.set(0, 0, 1);
+  camera.up.set(0, 1, 0);
   camera.position.set(0, 0, 10);
+  camera.lookAt(0, 0, 0);
   scene.add(new THREE.AmbientLight(0xffffff, 0.8));
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
   dirLight.position.set(0, 0, 10);
@@ -350,10 +351,12 @@ import * as THREE from './lib/three.module.js';
 
     // shared geometry and materials for floors and walls
     const floorGeo = new THREE.PlaneGeometry(1, 1);
+    floorGeo.rotateX(-Math.PI / 2);
     const floorMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(COLORS.floor),
     });
     const wallGeo = new THREE.BoxGeometry(1, 1, 1);
+    wallGeo.rotateX(-Math.PI / 2);
     const wallMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(COLORS.wall),
     });
