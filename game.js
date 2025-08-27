@@ -56,6 +56,15 @@ import * as THREE from './node_modules/three/build/three.module.js';
   const canvas = document.getElementById('game');
   const renderer = new THREE.WebGLRenderer({ canvas });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
+  const overlayCanvas = document.createElement('canvas');
+  overlayCanvas.style.position = 'absolute';
+  overlayCanvas.style.top = '0';
+  overlayCanvas.style.left = '0';
+  overlayCanvas.style.pointerEvents = 'none';
+  overlayCanvas.style.width = '100%';
+  overlayCanvas.style.height = '100%';
+  canvas.parentElement.appendChild(overlayCanvas);
+  const overlayCtx = overlayCanvas.getContext('2d');
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, VIEW_W, VIEW_W, 0, 0.1, 1000);
   camera.position.set(VIEW_W / 2, VIEW_W / 2, 10);
@@ -412,7 +421,7 @@ import * as THREE from './node_modules/three/build/three.module.js';
     tctx.restore();
   }
   function drawOutlineRect(x, y, c, a) {
-    drawOutlineRectTo(ctx, x, y, c, a);
+    drawOutlineRectTo(overlayCtx, x, y, c, a);
   }
   function drawHPBar(x, y, z, ratio) {
     const { sx, sy } = tileToScreen(x, y, z);
@@ -420,11 +429,11 @@ import * as THREE from './node_modules/three/build/three.module.js';
       h = Math.max(3, tileSize * 0.09);
     const bx = sx + tilePad,
       by = sy + tilePad * 0.7;
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(bx, by, w, h);
-    ctx.fillStyle =
+    overlayCtx.fillStyle = 'rgba(0,0,0,.5)';
+    overlayCtx.fillRect(bx, by, w, h);
+    overlayCtx.fillStyle =
       ratio > 0.5 ? '#22c55e' : ratio > 0.25 ? '#f59e0b' : '#ef4444';
-    ctx.fillRect(bx, by, w * ratio, h);
+    overlayCtx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapMeter(t) {
     const { sx, sy } = tileToScreen(t.x, t.y, t.z);
@@ -445,58 +454,58 @@ import * as THREE from './node_modules/three/build/three.module.js';
       h = Math.max(3, tileSize * 0.1);
     const bx = sx + tilePad,
       by = sy + tileSize - h - tilePad;
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(bx, by, w, h);
-    ctx.fillStyle =
+    overlayCtx.fillStyle = 'rgba(0,0,0,.5)';
+    overlayCtx.fillRect(bx, by, w, h);
+    overlayCtx.fillStyle =
       ratio > 0.5 ? '#22c55e' : ratio > 0.25 ? '#f59e0b' : '#ef4444';
-    ctx.fillRect(bx, by, w * ratio, h);
+    overlayCtx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapIcon(t) {
     const { sx, sy } = tileToScreen(t.x, t.y, t.z);
     const cx = sx + tileSize / 2,
       cy = sy + tileSize / 2;
     const size = tileSize - tilePad * 2;
-    ctx.save();
+    overlayCtx.save();
     if (t.type === 'arrow') {
-      ctx.fillStyle = COLORS.arrow;
-      ctx.beginPath();
-      ctx.moveTo(cx - size * 0.35, cy - size * 0.2);
-      ctx.lineTo(cx + size * 0.35, cy);
-      ctx.lineTo(cx - size * 0.35, cy + size * 0.2);
-      ctx.closePath();
-      ctx.fill();
+      overlayCtx.fillStyle = COLORS.arrow;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx - size * 0.35, cy - size * 0.2);
+      overlayCtx.lineTo(cx + size * 0.35, cy);
+      overlayCtx.lineTo(cx - size * 0.35, cy + size * 0.2);
+      overlayCtx.closePath();
+      overlayCtx.fill();
     } else if (t.type === 'rune') {
-      ctx.strokeStyle = COLORS.rune;
-      ctx.lineWidth = Math.max(2, tileSize * 0.1);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - size * 0.3);
-      ctx.lineTo(cx + size * 0.3, cy);
-      ctx.lineTo(cx, cy + size * 0.3);
-      ctx.lineTo(cx - size * 0.3, cy);
-      ctx.closePath();
-      ctx.stroke();
+      overlayCtx.strokeStyle = COLORS.rune;
+      overlayCtx.lineWidth = Math.max(2, tileSize * 0.1);
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx, cy - size * 0.3);
+      overlayCtx.lineTo(cx + size * 0.3, cy);
+      overlayCtx.lineTo(cx, cy + size * 0.3);
+      overlayCtx.lineTo(cx - size * 0.3, cy);
+      overlayCtx.closePath();
+      overlayCtx.stroke();
     } else if (t.type === 'fire') {
-      ctx.fillStyle = COLORS.fire;
-      ctx.beginPath();
-      ctx.arc(cx, cy, size * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - size * 0.2);
-      ctx.lineTo(cx + size * 0.1, cy);
-      ctx.lineTo(cx - size * 0.1, cy);
-      ctx.closePath();
-      ctx.fill();
+      overlayCtx.fillStyle = COLORS.fire;
+      overlayCtx.beginPath();
+      overlayCtx.arc(cx, cy, size * 0.3, 0, Math.PI * 2);
+      overlayCtx.fill();
+      overlayCtx.fillStyle = '#fff';
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx, cy - size * 0.2);
+      overlayCtx.lineTo(cx + size * 0.1, cy);
+      overlayCtx.lineTo(cx - size * 0.1, cy);
+      overlayCtx.closePath();
+      overlayCtx.fill();
     } else if (t.type === 'spike') {
-      ctx.fillStyle = COLORS.spike;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - size * 0.35);
-      ctx.lineTo(cx + size * 0.35, cy + size * 0.35);
-      ctx.lineTo(cx - size * 0.35, cy + size * 0.35);
-      ctx.closePath();
-      ctx.fill();
+      overlayCtx.fillStyle = COLORS.spike;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(cx, cy - size * 0.35);
+      overlayCtx.lineTo(cx + size * 0.35, cy + size * 0.35);
+      overlayCtx.lineTo(cx - size * 0.35, cy + size * 0.35);
+      overlayCtx.closePath();
+      overlayCtx.fill();
     }
-    ctx.restore();
+    overlayCtx.restore();
   }
   function drawDrops() {
     for (const d of state.drops) {
@@ -504,27 +513,27 @@ import * as THREE from './node_modules/three/build/three.module.js';
       const cx = sx + tileSize / 2,
         cy = sy + tileSize / 2;
       const r = tileSize / 4;
-      ctx.save();
+      overlayCtx.save();
       if (d.kind === 'mana') {
-        ctx.fillStyle = COLORS.mana;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
+        overlayCtx.fillStyle = COLORS.mana;
+        overlayCtx.beginPath();
+        overlayCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        overlayCtx.fill();
       } else if (d.kind === 'potion') {
-        ctx.fillStyle = COLORS.potion;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = Math.max(2, tileSize * 0.08);
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - r * 0.5);
-        ctx.lineTo(cx, cy + r * 0.5);
-        ctx.moveTo(cx - r * 0.5, cy);
-        ctx.lineTo(cx + r * 0.5, cy);
-        ctx.stroke();
+        overlayCtx.fillStyle = COLORS.potion;
+        overlayCtx.beginPath();
+        overlayCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        overlayCtx.fill();
+        overlayCtx.strokeStyle = '#fff';
+        overlayCtx.lineWidth = Math.max(2, tileSize * 0.08);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(cx, cy - r * 0.5);
+        overlayCtx.lineTo(cx, cy + r * 0.5);
+        overlayCtx.moveTo(cx - r * 0.5, cy);
+        overlayCtx.lineTo(cx + r * 0.5, cy);
+        overlayCtx.stroke();
       }
-      ctx.restore();
+      overlayCtx.restore();
     }
   }
   function outlineRangeTiles(cx, cy, r, color) {
@@ -608,54 +617,54 @@ import * as THREE from './node_modules/three/build/three.module.js';
       fx.life--;
       if (fx.life <= 0) continue;
       const { sx, sy } = tileToScreen(fx.x, fx.y, fx.z);
-      ctx.save();
+      overlayCtx.save();
       if (fx.kind === 'hit') {
-        ctx.globalAlpha = fx.life / fx.max;
-        ctx.strokeStyle = '#e8ecff';
-        ctx.lineWidth = Math.max(1, tileSize * 0.06);
-        ctx.beginPath();
-        ctx.arc(
+        overlayCtx.globalAlpha = fx.life / fx.max;
+        overlayCtx.strokeStyle = '#e8ecff';
+        overlayCtx.lineWidth = Math.max(1, tileSize * 0.06);
+        overlayCtx.beginPath();
+        overlayCtx.arc(
           sx + tileSize / 2,
           sy + tileSize / 2,
           tileSize * 0.3 * (1 + (fx.max - fx.life) / fx.max),
           0,
           Math.PI * 2,
         );
-        ctx.stroke();
+        overlayCtx.stroke();
       } else if (fx.kind === 'slow') {
-        ctx.globalAlpha = 0.5 * (fx.life / fx.max);
-        ctx.strokeStyle = '#06b6d4';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(
+        overlayCtx.globalAlpha = 0.5 * (fx.life / fx.max);
+        overlayCtx.strokeStyle = '#06b6d4';
+        overlayCtx.lineWidth = 2;
+        overlayCtx.strokeRect(
           sx + tilePad,
           sy + tilePad,
           tileSize - tilePad * 2,
           tileSize - tilePad * 2,
         );
       } else if (fx.kind === 'fire') {
-        ctx.globalAlpha = 0.5 * (fx.life / fx.max);
-        ctx.fillStyle = 'rgba(239,68,68,.25)';
-        ctx.beginPath();
-        ctx.arc(
+        overlayCtx.globalAlpha = 0.5 * (fx.life / fx.max);
+        overlayCtx.fillStyle = 'rgba(239,68,68,.25)';
+        overlayCtx.beginPath();
+        overlayCtx.arc(
           sx + tileSize / 2,
           sy + tileSize / 2,
           tileSize * 0.45,
           0,
           Math.PI * 2,
         );
-        ctx.fill();
+        overlayCtx.fill();
       } else if (fx.kind === 'explosion') {
-        ctx.globalAlpha = 0.6 * (fx.life / fx.max);
-        ctx.fillStyle = COLORS.explosion;
-        ctx.beginPath();
-        ctx.arc(
+        overlayCtx.globalAlpha = 0.6 * (fx.life / fx.max);
+        overlayCtx.fillStyle = COLORS.explosion;
+        overlayCtx.beginPath();
+        overlayCtx.arc(
           sx + tileSize / 2,
           sy + tileSize / 2,
           tileSize * 0.5 * (1 + (fx.max - fx.life) / fx.max),
           0,
           Math.PI * 2,
         );
-        ctx.fill();
+        overlayCtx.fill();
       } else if (fx.kind === 'fireRange') {
         const a = 0.3 * (fx.life / fx.max);
         for (let y = fx.y - fx.r; y <= fx.y + fx.r; y++) {
@@ -666,17 +675,17 @@ import * as THREE from './node_modules/three/build/three.module.js';
           }
         }
       } else if (fx.kind === 'saboteurExplosion') {
-        ctx.globalAlpha = 0.5 * (fx.life / fx.max);
-        ctx.fillStyle = 'rgba(168,85,247,.25)';
-        ctx.beginPath();
-        ctx.arc(
+        overlayCtx.globalAlpha = 0.5 * (fx.life / fx.max);
+        overlayCtx.fillStyle = 'rgba(168,85,247,.25)';
+        overlayCtx.beginPath();
+        overlayCtx.arc(
           sx + tileSize / 2,
           sy + tileSize / 2,
           tileSize * 0.45,
           0,
           Math.PI * 2,
         );
-        ctx.fill();
+        overlayCtx.fill();
       } else if (fx.kind === 'saboteurRange') {
         const a = 0.3 * (fx.life / fx.max);
         for (let y = fx.y - fx.r; y <= fx.y + fx.r; y++) {
@@ -692,28 +701,28 @@ import * as THREE from './node_modules/three/build/three.module.js';
         const { sx: bsx, sy: bsy } = tileToScreen(fx.tx, fx.ty);
         const x = asx + (bsx - asx) * p;
         const y = asy + (bsy - asy) * p;
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = fx.color || '#fff';
-        ctx.lineWidth = Math.max(2, tileSize * 0.15);
-        ctx.beginPath();
-        ctx.moveTo(x + tileSize / 2, y + tileSize / 2);
-        ctx.lineTo(
+        overlayCtx.globalAlpha = 1;
+        overlayCtx.strokeStyle = fx.color || '#fff';
+        overlayCtx.lineWidth = Math.max(2, tileSize * 0.15);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(x + tileSize / 2, y + tileSize / 2);
+        overlayCtx.lineTo(
           x + tileSize / 2 - (bsx - asx) * 0.2,
           y + tileSize / 2 - (bsy - asy) * 0.2,
         );
-        ctx.stroke();
+        overlayCtx.stroke();
       } else if (fx.kind === 'slash') {
-        ctx.globalAlpha = fx.life / fx.max;
-        ctx.strokeStyle = '#e8ecff';
-        ctx.lineWidth = Math.max(2, tileSize * 0.1);
-        ctx.beginPath();
-        ctx.moveTo(sx + tilePad, sy + tilePad);
-        ctx.lineTo(sx + tileSize - tilePad, sy + tileSize - tilePad);
-        ctx.moveTo(sx + tilePad, sy + tileSize - tilePad);
-        ctx.lineTo(sx + tileSize - tilePad, sy + tilePad);
-        ctx.stroke();
+        overlayCtx.globalAlpha = fx.life / fx.max;
+        overlayCtx.strokeStyle = '#e8ecff';
+        overlayCtx.lineWidth = Math.max(2, tileSize * 0.1);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(sx + tilePad, sy + tilePad);
+        overlayCtx.lineTo(sx + tileSize - tilePad, sy + tileSize - tilePad);
+        overlayCtx.moveTo(sx + tilePad, sy + tileSize - tilePad);
+        overlayCtx.lineTo(sx + tileSize - tilePad, sy + tilePad);
+        overlayCtx.stroke();
       }
-      ctx.restore();
+      overlayCtx.restore();
       next.push(fx);
     }
     state.fx = next;
@@ -775,6 +784,9 @@ import * as THREE from './node_modules/three/build/three.module.js';
   function draw() {
     const rect = canvas.getBoundingClientRect();
     renderer.setSize(rect.width, rect.height, false);
+    overlayCanvas.width = rect.width;
+    overlayCanvas.height = rect.height;
+    overlayCtx.clearRect(0, 0, rect.width, rect.height);
     tileSize = rect.width / VIEW_W;
     updateCamera();
     camera.position.set(
@@ -788,6 +800,7 @@ import * as THREE from './node_modules/three/build/three.module.js';
     for (const e of state.enemies) {
       drawEnemy(e);
       active.add(e);
+      drawHPBar(e.x, e.y, e.z, e.hp / e.maxhp);
     }
     for (const [e, mesh] of enemyMeshes) {
       if (!active.has(e)) {
@@ -795,6 +808,13 @@ import * as THREE from './node_modules/three/build/three.module.js';
         enemyMeshes.delete(e);
       }
     }
+    for (const t of state.towers) {
+      drawTrapIcon(t);
+      drawTrapMeter(t);
+    }
+    drawDrops();
+    drawEffects();
+    if (state.placeMode) highlightPlacementArea();
     renderer.render(scene, camera);
   }
   window.addEventListener('resize', () => {
