@@ -167,15 +167,15 @@ import * as THREE from './lib/three.module.js';
       return;
     }
     const pad = parseFloat(getComputedStyle(mapWrap).paddingLeft) || 0;
-    const { sx, sy } = tileToScreen(
+    const { sx, sy } = projectToScreen(
       tileX,
       tileY,
       state.map.height[tileY][tileX],
     );
     const size = tileSize * radius;
     placementPreview.style.display = 'block';
-    placementPreview.style.left = pad + sx + 'px';
-    placementPreview.style.top = pad + sy + 'px';
+    placementPreview.style.left = pad + (sx - size / 2) + 'px';
+    placementPreview.style.top = pad + (sy - size / 2) + 'px';
     placementPreview.style.width = size + 'px';
     placementPreview.style.height = size + 'px';
     placementPreview.className = shape === 'circle' ? 'circle' : '';
@@ -247,12 +247,12 @@ import * as THREE from './lib/three.module.js';
   function samePos(a, b) {
     return a.x === b.x && a.y === b.y && a.z === b.z;
   }
-  function tileToScreen(x, y, z = 0) {
-    const v = new THREE.Vector3(x, y, z);
-    v.project(camera);
-    const sx = ((v.x + 1) / 2) * overlayCanvas.width;
-    const sy = ((1 - v.y) / 2) * overlayCanvas.height;
-    return { sx, sy };
+  function projectToScreen(x, y, z = 0) {
+    const v = new THREE.Vector3(x + 0.5, y + 0.5, z).project(camera);
+    return {
+      sx: ((v.x + 1) / 2) * overlayCanvas.width,
+      sy: ((1 - v.y) / 2) * overlayCanvas.height,
+    };
   }
   function isWall(x, y, z) {
     return state.map.grid[z][y][x] === 1;
@@ -380,15 +380,15 @@ import * as THREE from './lib/three.module.js';
     terrainValid = true;
   }
   function drawOutlineRectTo(tctx, x, y, color, alpha = 0.28) {
-    const { sx, sy } = tileToScreen(x, y, 0);
+    const { sx, sy } = projectToScreen(x, y, 0);
     tctx.save();
     tctx.globalAlpha = alpha;
     tctx.strokeStyle = color;
     tctx.setLineDash([4, 3]);
     tctx.lineWidth = Math.max(1, tileSize * 0.06);
     tctx.strokeRect(
-      sx + tilePad,
-      sy + tilePad,
+      sx - tileSize / 2 + tilePad,
+      sy - tileSize / 2 + tilePad,
       tileSize - tilePad * 2,
       tileSize - tilePad * 2,
     );
@@ -398,11 +398,11 @@ import * as THREE from './lib/three.module.js';
     drawOutlineRectTo(overlayCtx, x, y, c, a);
   }
   function drawHPBar(x, y, z, ratio) {
-    const { sx, sy } = tileToScreen(x, y, z);
+    const { sx, sy } = projectToScreen(x, y, z);
     const w = tileSize - tilePad * 2,
       h = Math.max(3, tileSize * 0.09);
-    const bx = sx + tilePad,
-      by = sy + tilePad * 0.7;
+    const bx = sx - tileSize / 2 + tilePad,
+      by = sy - tileSize / 2 + tilePad * 0.7;
     overlayCtx.fillStyle = 'rgba(0,0,0,.5)';
     overlayCtx.fillRect(bx, by, w, h);
     overlayCtx.fillStyle =
@@ -410,7 +410,7 @@ import * as THREE from './lib/three.module.js';
     overlayCtx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapMeter(t) {
-    const { sx, sy } = tileToScreen(t.x, t.y, t.z);
+    const { sx, sy } = projectToScreen(t.x, t.y, t.z);
     let max = 1;
     switch (t.type) {
       case 'arrow':
@@ -426,8 +426,8 @@ import * as THREE from './lib/three.module.js';
     const ratio = t.ammo === undefined ? 1 : t.ammo / max;
     const w = tileSize - tilePad * 2,
       h = Math.max(3, tileSize * 0.1);
-    const bx = sx + tilePad,
-      by = sy + tileSize - h - tilePad;
+    const bx = sx - tileSize / 2 + tilePad,
+      by = sy + tileSize / 2 - h - tilePad;
     overlayCtx.fillStyle = 'rgba(0,0,0,.5)';
     overlayCtx.fillRect(bx, by, w, h);
     overlayCtx.fillStyle =
@@ -435,9 +435,9 @@ import * as THREE from './lib/three.module.js';
     overlayCtx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapIcon(t) {
-    const { sx, sy } = tileToScreen(t.x, t.y, t.z);
-    const cx = sx + tileSize / 2,
-      cy = sy + tileSize / 2;
+    const { sx, sy } = projectToScreen(t.x, t.y, t.z);
+    const cx = sx,
+      cy = sy;
     const size = tileSize - tilePad * 2;
     overlayCtx.save();
     if (t.type === 'arrow') {
@@ -483,9 +483,9 @@ import * as THREE from './lib/three.module.js';
   }
   function drawDrops() {
     for (const d of state.drops) {
-      const { sx, sy } = tileToScreen(d.x, d.y, d.z);
-      const cx = sx + tileSize / 2,
-        cy = sy + tileSize / 2;
+      const { sx, sy } = projectToScreen(d.x, d.y, d.z);
+      const cx = sx,
+        cy = sy;
       const r = tileSize / 4;
       overlayCtx.save();
       if (d.kind === 'mana') {
@@ -590,7 +590,7 @@ import * as THREE from './lib/three.module.js';
       const fx = state.fx[i];
       fx.life--;
       if (fx.life <= 0) continue;
-      const { sx, sy } = tileToScreen(fx.x, fx.y, fx.z);
+      const { sx, sy } = projectToScreen(fx.x, fx.y, fx.z);
       overlayCtx.save();
       if (fx.kind === 'hit') {
         overlayCtx.globalAlpha = fx.life / fx.max;
@@ -598,8 +598,8 @@ import * as THREE from './lib/three.module.js';
         overlayCtx.lineWidth = Math.max(1, tileSize * 0.06);
         overlayCtx.beginPath();
         overlayCtx.arc(
-          sx + tileSize / 2,
-          sy + tileSize / 2,
+          sx,
+          sy,
           tileSize * 0.3 * (1 + (fx.max - fx.life) / fx.max),
           0,
           Math.PI * 2,
@@ -610,8 +610,8 @@ import * as THREE from './lib/three.module.js';
         overlayCtx.strokeStyle = '#06b6d4';
         overlayCtx.lineWidth = 2;
         overlayCtx.strokeRect(
-          sx + tilePad,
-          sy + tilePad,
+          sx - tileSize / 2 + tilePad,
+          sy - tileSize / 2 + tilePad,
           tileSize - tilePad * 2,
           tileSize - tilePad * 2,
         );
@@ -619,21 +619,15 @@ import * as THREE from './lib/three.module.js';
         overlayCtx.globalAlpha = 0.5 * (fx.life / fx.max);
         overlayCtx.fillStyle = 'rgba(239,68,68,.25)';
         overlayCtx.beginPath();
-        overlayCtx.arc(
-          sx + tileSize / 2,
-          sy + tileSize / 2,
-          tileSize * 0.45,
-          0,
-          Math.PI * 2,
-        );
+        overlayCtx.arc(sx, sy, tileSize * 0.45, 0, Math.PI * 2);
         overlayCtx.fill();
       } else if (fx.kind === 'explosion') {
         overlayCtx.globalAlpha = 0.6 * (fx.life / fx.max);
         overlayCtx.fillStyle = COLORS.explosion;
         overlayCtx.beginPath();
         overlayCtx.arc(
-          sx + tileSize / 2,
-          sy + tileSize / 2,
+          sx,
+          sy,
           tileSize * 0.5 * (1 + (fx.max - fx.life) / fx.max),
           0,
           Math.PI * 2,
@@ -652,13 +646,7 @@ import * as THREE from './lib/three.module.js';
         overlayCtx.globalAlpha = 0.5 * (fx.life / fx.max);
         overlayCtx.fillStyle = 'rgba(168,85,247,.25)';
         overlayCtx.beginPath();
-        overlayCtx.arc(
-          sx + tileSize / 2,
-          sy + tileSize / 2,
-          tileSize * 0.45,
-          0,
-          Math.PI * 2,
-        );
+        overlayCtx.arc(sx, sy, tileSize * 0.45, 0, Math.PI * 2);
         overlayCtx.fill();
       } else if (fx.kind === 'saboteurRange') {
         const a = 0.3 * (fx.life / fx.max);
@@ -671,29 +659,38 @@ import * as THREE from './lib/three.module.js';
         }
       } else if (fx.kind === 'projectile') {
         const p = 1 - fx.life / fx.max;
-        const { sx: asx, sy: asy } = tileToScreen(fx.sx, fx.sy);
-        const { sx: bsx, sy: bsy } = tileToScreen(fx.tx, fx.ty);
+        const { sx: asx, sy: asy } = projectToScreen(fx.sx, fx.sy);
+        const { sx: bsx, sy: bsy } = projectToScreen(fx.tx, fx.ty);
         const x = asx + (bsx - asx) * p;
         const y = asy + (bsy - asy) * p;
         overlayCtx.globalAlpha = 1;
         overlayCtx.strokeStyle = fx.color || '#fff';
         overlayCtx.lineWidth = Math.max(2, tileSize * 0.15);
         overlayCtx.beginPath();
-        overlayCtx.moveTo(x + tileSize / 2, y + tileSize / 2);
-        overlayCtx.lineTo(
-          x + tileSize / 2 - (bsx - asx) * 0.2,
-          y + tileSize / 2 - (bsy - asy) * 0.2,
-        );
+        overlayCtx.moveTo(x, y);
+        overlayCtx.lineTo(x - (bsx - asx) * 0.2, y - (bsy - asy) * 0.2);
         overlayCtx.stroke();
       } else if (fx.kind === 'slash') {
         overlayCtx.globalAlpha = fx.life / fx.max;
         overlayCtx.strokeStyle = '#e8ecff';
         overlayCtx.lineWidth = Math.max(2, tileSize * 0.1);
         overlayCtx.beginPath();
-        overlayCtx.moveTo(sx + tilePad, sy + tilePad);
-        overlayCtx.lineTo(sx + tileSize - tilePad, sy + tileSize - tilePad);
-        overlayCtx.moveTo(sx + tilePad, sy + tileSize - tilePad);
-        overlayCtx.lineTo(sx + tileSize - tilePad, sy + tilePad);
+        overlayCtx.moveTo(
+          sx - tileSize / 2 + tilePad,
+          sy - tileSize / 2 + tilePad,
+        );
+        overlayCtx.lineTo(
+          sx + tileSize / 2 - tilePad,
+          sy + tileSize / 2 - tilePad,
+        );
+        overlayCtx.moveTo(
+          sx - tileSize / 2 + tilePad,
+          sy + tileSize / 2 - tilePad,
+        );
+        overlayCtx.lineTo(
+          sx + tileSize / 2 - tilePad,
+          sy - tileSize / 2 + tilePad,
+        );
         overlayCtx.stroke();
       }
       overlayCtx.restore();
@@ -826,13 +823,13 @@ import * as THREE from './lib/three.module.js';
     let x = clientX - rect.left,
       y = clientY - rect.top;
     if (state.placeMode) {
-      const { sx: psx, sy: psy } = tileToScreen(
+      const { sx: psx, sy: psy } = projectToScreen(
         state.player.x,
         state.player.y,
         state.player.z,
       );
-      x = (x - rect.width / 2) / PLACE_ZOOM + psx + tileSize / 2;
-      y = (y - rect.height / 2) / PLACE_ZOOM + psy + tileSize / 2;
+      x = (x - rect.width / 2) / PLACE_ZOOM + psx;
+      y = (y - rect.height / 2) / PLACE_ZOOM + psy;
     }
     x =
       Math.floor(Math.max(0, Math.min(rect.width - 1, x)) / tileSize) +
