@@ -376,6 +376,26 @@ import * as THREE from './lib/three.module.js';
         terrainGroup.add(mesh);
       }
     }
+
+    // draw control nodes
+    for (const node of state.map.nodes) {
+      const color = node.captured
+        ? COLORS.nodeCaptured
+        : node.capturing
+        ? COLORS.nodeCapturing
+        : COLORS.nodeIdle;
+      const geo = new THREE.CircleGeometry(node.size / 2, 16);
+      const mat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(color),
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        node.x + node.size / 2,
+        node.y + node.size / 2,
+        node.z + 0.01,
+      );
+      terrainGroup.add(mesh);
+    }
     terrainValid = true;
   }
   function drawOutlineRectTo(tctx, x, y, color, alpha = 0.28) {
