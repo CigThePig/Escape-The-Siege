@@ -55,7 +55,8 @@ import * as THREE from './lib/three.module.js';
 
   const canvas = document.getElementById('game');
   const renderer = new THREE.WebGLRenderer({ canvas });
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  const dpr = window.devicePixelRatio || 1;
+  renderer.setPixelRatio(dpr);
   const overlayCanvas = document.createElement('canvas');
   overlayCanvas.style.position = 'absolute';
   overlayCanvas.style.top = '0';
@@ -774,8 +775,9 @@ import * as THREE from './lib/three.module.js';
   function draw() {
     const rect = canvas.getBoundingClientRect();
     renderer.setSize(rect.width, rect.height, false);
-    overlayCanvas.width = rect.width;
-    overlayCanvas.height = rect.height;
+    overlayCanvas.width = rect.width * dpr;
+    overlayCanvas.height = rect.height * dpr;
+    overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     overlayCtx.clearRect(0, 0, rect.width, rect.height);
     tileSize = rect.width / VIEW_W;
     const half = VIEW_W / 2;
