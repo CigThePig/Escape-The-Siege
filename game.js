@@ -66,9 +66,16 @@ import * as THREE from './lib/three.module.js';
   canvas.parentElement.appendChild(overlayCanvas);
   const overlayCtx = overlayCanvas.getContext('2d');
   const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(0, VIEW_W, VIEW_W, 0, 0.1, 1000);
+  const camera = new THREE.OrthographicCamera(
+    -VIEW_W / 2,
+    VIEW_W / 2,
+    VIEW_W / 2,
+    -VIEW_W / 2,
+    0.1,
+    1000,
+  );
   camera.up.set(0, 0, 1);
-  camera.position.set(VIEW_W / 2, VIEW_W / 2, 10);
+  camera.position.set(0, 0, 10);
   scene.add(new THREE.AmbientLight(0xffffff, 0.8));
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
   dirLight.position.set(0, 0, 10);
@@ -208,17 +215,6 @@ import * as THREE from './lib/three.module.js';
     setDashArmed(st.dashArmed, st.dashCD);
     setActiveTrap(st.selectedTool);
     updateMana(st.mana);
-  }
-
-  function updateCamera() {
-    state.cameraX = Math.max(
-      0,
-      Math.min(state.player.x - Math.floor(VIEW_W / 2), GRID_W - VIEW_W),
-    );
-    state.cameraY = Math.max(
-      0,
-      Math.min(state.player.y - Math.floor(VIEW_W / 2), GRID_H - VIEW_W),
-    );
   }
 
   const LEGEND_DATA = [
@@ -759,13 +755,12 @@ import * as THREE from './lib/three.module.js';
     overlayCanvas.height = rect.height;
     overlayCtx.clearRect(0, 0, rect.width, rect.height);
     tileSize = rect.width / VIEW_W;
-    updateCamera();
     camera.position.set(
-      state.cameraX + VIEW_W / 2,
-      state.cameraY + VIEW_W / 2,
+      state.player.x + 0.5,
+      state.player.y + 0.5,
       10,
     );
-    camera.lookAt(state.cameraX + VIEW_W / 2, state.cameraY + VIEW_W / 2, 0);
+    camera.lookAt(state.player.x + 0.5, state.player.y + 0.5, 0);
     if (!terrainValid) drawTerrainAll();
     drawPlayer();
     const active = new Set();
@@ -831,13 +826,12 @@ import * as THREE from './lib/three.module.js';
       x = (x - rect.width / 2) / PLACE_ZOOM + psx;
       y = (y - rect.height / 2) / PLACE_ZOOM + psy;
     }
-    x =
-      Math.floor(Math.max(0, Math.min(rect.width - 1, x)) / tileSize) +
-      state.cameraX;
-    y =
-      Math.floor(Math.max(0, Math.min(rect.height - 1, y)) / tileSize) +
-      state.cameraY;
-    return { x, y };
+    const nx =
+      (Math.max(0, Math.min(rect.width - 1, x)) / rect.width) * 2 - 1;
+    const ny =
+      -((Math.max(0, Math.min(rect.height - 1, y)) / rect.height) * 2 - 1);
+    const v = new THREE.Vector3(nx, ny, 0).unproject(camera);
+    return { x: Math.floor(v.x), y: Math.floor(v.y) };
   }
   btnPlace.addEventListener('click', () => {
     if (btnPlace.disabled) return;
@@ -1056,7 +1050,6 @@ import * as THREE from './lib/three.module.js';
         logMsg(`Opened chest: +${CHEST_MANA} mana.`);
       }
     }
-    updateCamera();
     if (
       state.player.x === state.map.exit.x &&
       state.player.y === state.map.exit.y &&
@@ -1865,8 +1858,6 @@ import * as THREE from './lib/three.module.js';
         fire: FIRE_AMMO,
         spike: Infinity,
       },
-      cameraX: 0,
-      cameraY: 0,
       spikePlaced: false,
       enemyCap: ENEMY_CAP,
       exitWarned: false,
@@ -1875,7 +1866,6 @@ import * as THREE from './lib/three.module.js';
     clearLog();
     logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');
     terrainValid = false;
-    updateCamera();
     renderTrapbar(TRAP_DEFS, state);
     TRAP_DEFS.forEach((t) => setCooldown(t.id, 0, 1));
     updateHUD();
