@@ -218,28 +218,6 @@ import * as THREE from './lib/three.module.js';
       0,
       Math.min(state.player.y - Math.floor(VIEW_W / 2), GRID_H - VIEW_W),
     );
-    const cx = state.cameraX;
-    const cy = state.cameraY;
-    const cz = state.cameraZ || 0;
-    const s = tileSize;
-    state.cameraMatrix = [
-      s,
-      0,
-      0,
-      0,
-      0,
-      s,
-      -s,
-      0,
-      0,
-      0,
-      1,
-      0,
-      -cx * s,
-      (-cy + cz) * s,
-      -cz,
-      1,
-    ];
   }
 
   const LEGEND_DATA = [
@@ -268,17 +246,12 @@ import * as THREE from './lib/three.module.js';
   function samePos(a, b) {
     return a.x === b.x && a.y === b.y && a.z === b.z;
   }
-  function tileToScreen(x, y, z = 0, useCam = true) {
-    const m = useCam
-      ? state.cameraMatrix
-      : [tileSize, 0, 0, 0, 0, tileSize, -tileSize, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-    const wx = x;
-    const wy = y;
-    const wz = z;
-    const sx = m[0] * wx + m[4] * wy + m[8] * wz + m[12];
-    const sy = m[1] * wx + m[5] * wy + m[9] * wz + m[13];
-    const w = m[3] * wx + m[7] * wy + m[11] * wz + m[15];
-    return { sx: sx / w, sy: sy / w };
+  function tileToScreen(x, y, z = 0) {
+    const v = new THREE.Vector3(x, y, z);
+    v.project(camera);
+    const sx = ((v.x + 1) / 2) * overlayCanvas.width;
+    const sy = ((1 - v.y) / 2) * overlayCanvas.height;
+    return { sx, sy };
   }
   function isWall(x, y, z) {
     return state.map.grid[z][y][x] === 1;
@@ -406,8 +379,8 @@ import * as THREE from './lib/three.module.js';
     }
     terrainValid = true;
   }
-  function drawOutlineRectTo(tctx, x, y, color, alpha = 0.28, useCam = true) {
-    const { sx, sy } = tileToScreen(x, y, 0, useCam);
+  function drawOutlineRectTo(tctx, x, y, color, alpha = 0.28) {
+    const { sx, sy } = tileToScreen(x, y, 0);
     tctx.save();
     tctx.globalAlpha = alpha;
     tctx.strokeStyle = color;
@@ -795,6 +768,7 @@ import * as THREE from './lib/three.module.js';
       state.cameraY + VIEW_W / 2,
       10,
     );
+    camera.lookAt(state.cameraX + VIEW_W / 2, state.cameraY + VIEW_W / 2, 0);
     if (!terrainValid) drawTerrainAll();
     drawPlayer();
     const active = new Set();
@@ -1896,8 +1870,6 @@ import * as THREE from './lib/three.module.js';
       },
       cameraX: 0,
       cameraY: 0,
-      cameraZ: 0,
-      cameraMatrix: null,
       spikePlaced: false,
       enemyCap: ENEMY_CAP,
       exitWarned: false,
