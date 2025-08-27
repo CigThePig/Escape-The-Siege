@@ -362,18 +362,36 @@ import * as THREE from 'three';
   function ensureOffscreen() {}
   function drawWallTileTo() {}
   function drawTerrainAll() {
+    // dispose existing terrain meshes before clearing the group
+    terrainGroup.children.forEach((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
     terrainGroup.clear();
+
+    // shared geometry and materials for floors and walls
+    const floorGeo = new THREE.PlaneGeometry(1, 1);
+    const floorMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(COLORS.floor),
+    });
+    const wallGeo = new THREE.BoxGeometry(1, 1, 1);
+    const wallMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(COLORS.wall),
+    });
+
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         const z = state.map.height[y][x];
-        const color = isWall(x, y, z) ? COLORS.wall : COLORS.floor;
-        const geo = new THREE.PlaneGeometry(1, 1);
-        const mat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(color),
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(x + 0.5, y + 0.5, 0);
-        terrainGroup.add(mesh)
+        let mesh;
+        if (isWall(x, y, z)) {
+          mesh = new THREE.Mesh(wallGeo, wallMat);
+          mesh.scale.z = z + 1;
+          mesh.position.set(x + 0.5, y + 0.5, (z + 1) / 2);
+        } else {
+          mesh = new THREE.Mesh(floorGeo, floorMat);
+          mesh.position.set(x + 0.5, y + 0.5, z);
+        }
+        terrainGroup.add(mesh);
       }
     }
     terrainValid = true;
