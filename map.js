@@ -258,19 +258,30 @@ export function buildMap() {
     });
   }
 
+  const height = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(0));
+  for (let y = 0; y < GRID_H; y++)
+    for (let x = 0; x < GRID_W; x++)
+      for (let z = GRID_D - 1; z >= 0; z--)
+        if (grid[z][y][x] === 0) {
+          height[y][x] = z;
+          break;
+        }
+  start.z = height[start.y][start.x];
+  exit.z = height[exit.y][exit.x];
+
   const spawners = [];
   const edgeOptions = [];
-  for (let z = 0; z < GRID_D; z++) {
-    for (let y = 0; y < GRID_H; y++) {
-      if (grid[z][y][0] === 0) edgeOptions.push({ x: 0, y, z });
-      if (grid[z][y][GRID_W - 1] === 0)
-        edgeOptions.push({ x: GRID_W - 1, y, z });
-    }
-    for (let x = 0; x < GRID_W; x++) {
-      if (grid[z][0][x] === 0) edgeOptions.push({ x, y: 0, z });
-      if (grid[z][GRID_H - 1][x] === 0)
-        edgeOptions.push({ x, y: GRID_H - 1, z });
-    }
+  for (let y = 0; y < GRID_H; y++) {
+    if (grid[height[y][0]][y][0] === 0)
+      edgeOptions.push({ x: 0, y, z: height[y][0] });
+    if (grid[height[y][GRID_W - 1]][y][GRID_W - 1] === 0)
+      edgeOptions.push({ x: GRID_W - 1, y, z: height[y][GRID_W - 1] });
+  }
+  for (let x = 0; x < GRID_W; x++) {
+    if (grid[height[0][x]][0][x] === 0)
+      edgeOptions.push({ x, y: 0, z: height[0][x] });
+    if (grid[height[GRID_H - 1][x]][GRID_H - 1][x] === 0)
+      edgeOptions.push({ x, y: GRID_H - 1, z: height[GRID_H - 1][x] });
   }
   edgeOptions.sort(() => Math.random() - 0.5);
   function inNodeArea(p) {
@@ -297,6 +308,7 @@ export function buildMap() {
   }
   while (spawners.length < 3) {
     const p = randomFloor(grid);
+    p.z = height[p.y][p.x];
     if (dist1(p, start) < SPAWN_MIN_RADIUS) continue;
     if (
       (p.x === start.x && p.y === start.y && p.z === start.z) ||
@@ -312,16 +324,14 @@ export function buildMap() {
         Math.floor(GRID_W * 0.7) +
         ((Math.random() * Math.floor(GRID_W * 0.3)) | 0);
       const y = (Math.random() * GRID_H) | 0;
-      const z = (Math.random() * GRID_D) | 0;
-      const p = { x, y, z };
+      const p = { x, y };
+      p.z = height[y][x];
       if (
         x >= 0 &&
         x < GRID_W &&
         y >= 0 &&
         y < GRID_H &&
-        z >= 0 &&
-        z < GRID_D &&
-        grid[z][y][x] === 0 &&
+        grid[p.z][y][x] === 0 &&
         dist1(p, start) >= SPAWN_MIN_RADIUS &&
         !inNodeArea(p)
       ) {
@@ -330,10 +340,11 @@ export function buildMap() {
       }
     }
   }
-  const height = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(0));
+
   const chests = [];
   for (let i = 0; i < CHESTS_PER_RUN; i++) {
     const p = randomFloor(grid);
+    p.z = height[p.y][p.x];
     if (
       (p.x === start.x && p.y === start.y && p.z === start.z) ||
       (p.x === exit.x && p.y === exit.y && p.z === exit.z)
@@ -349,7 +360,7 @@ export function buildMap() {
       i--;
       continue;
     }
-    chests.push({ x: p.x, y: p.y, z: height[p.y][p.x], opened: false });
+    chests.push({ x: p.x, y: p.y, z: p.z, opened: false });
   }
   return { grid, height, start, exit, spawners, chests, nodes };
 }

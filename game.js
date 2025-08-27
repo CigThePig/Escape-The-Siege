@@ -1832,7 +1832,7 @@ import * as THREE from 'three';
       player: {
         x: map.start.x,
         y: map.start.y,
-        z: map.height[map.start.y][map.start.x],
+        z: map.start.z ?? map.height[map.start.y][map.start.x],
       },
       enemies: [],
       towers: [],
