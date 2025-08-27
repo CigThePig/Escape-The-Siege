@@ -330,6 +330,7 @@ export function buildMap() {
       }
     }
   }
+  const height = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(0));
   const chests = [];
   for (let i = 0; i < CHESTS_PER_RUN; i++) {
     const p = randomFloor(grid);
@@ -348,7 +349,7 @@ export function buildMap() {
       i--;
       continue;
     }
-    chests.push({ x: p.x, y: p.y, z: p.z, opened: false });
+    chests.push({ x: p.x, y: p.y, z: height[p.y][p.x], opened: false });
   }
-  return { grid, start, exit, spawners, chests, nodes };
+  return { grid, height, start, exit, spawners, chests, nodes };
 }

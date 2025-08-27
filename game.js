@@ -148,7 +148,11 @@ import './enemies.js';
       return;
     }
     const pad = parseFloat(getComputedStyle(mapWrap).paddingLeft) || 0;
-    const { sx, sy } = tileToScreen(tileX, tileY);
+    const { sx, sy } = tileToScreen(
+      tileX,
+      tileY,
+      state.map.height[tileY][tileX],
+    );
     const size = tileSize * radius;
     placementPreview.style.display = 'block';
     placementPreview.style.left = pad + sx + 'px';
@@ -196,6 +200,28 @@ import './enemies.js';
       0,
       Math.min(state.player.y - Math.floor(VIEW_W / 2), GRID_H - VIEW_W),
     );
+    const cx = state.cameraX;
+    const cy = state.cameraY;
+    const cz = state.cameraZ || 0;
+    const s = tileSize;
+    state.cameraMatrix = [
+      s,
+      0,
+      0,
+      0,
+      0,
+      s,
+      -s,
+      0,
+      0,
+      0,
+      1,
+      0,
+      -cx * s,
+      (-cy + cz) * s,
+      -cz,
+      1,
+    ];
   }
 
   const LEGEND_DATA = [
@@ -214,16 +240,26 @@ import './enemies.js';
     ['Hunter', COLORS.enemyHunter],
   ];
 
-  function inBounds(x, y) {
-    return x >= 0 && x < GRID_W && y >= 0 && y < GRID_H;
+  function inBounds(x, y, z) {
+    if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return false;
+    if (z == null) return true;
+    const h = state.map.height[y][x];
+    return Math.abs(z - h) <= 1;
   }
   function samePos(a, b) {
-    return a.x === b.x && a.y === b.y;
+    return a.x === b.x && a.y === b.y && a.z === b.z;
   }
-  function tileToScreen(x, y, useCam = true) {
-    const cx = useCam ? state.cameraX : 0,
-      cy = useCam ? state.cameraY : 0;
-    return { sx: (x - cx) * tileSize, sy: (y - cy) * tileSize };
+  function tileToScreen(x, y, z = 0, useCam = true) {
+    const m = useCam
+      ? state.cameraMatrix
+      : [tileSize, 0, 0, 0, 0, tileSize, -tileSize, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+    const wx = x;
+    const wy = y;
+    const wz = z;
+    const sx = m[0] * wx + m[4] * wy + m[8] * wz + m[12];
+    const sy = m[1] * wx + m[5] * wy + m[9] * wz + m[13];
+    const w = m[3] * wx + m[7] * wy + m[11] * wz + m[15];
+    return { sx: sx / w, sy: sy / w };
   }
   function isWall(x, y) {
     return state.map.grid[y][x] === 1;
@@ -284,13 +320,20 @@ import './enemies.js';
     return true;
   }
   function clearShotToPlayer(from, ignore = null) {
+    const fz = from.z ?? state.map.height[from.y][from.x];
+    if (Math.abs(fz - state.player.z) > 1) return false;
     if (!lineOfSight8(from, state.player)) return false;
     const dx = Math.sign(state.player.x - from.x),
       dy = Math.sign(state.player.y - from.y);
     let x = from.x + dx,
       y = from.y + dy;
     while (x !== state.player.x || y !== state.player.y) {
-      if (state.enemies.some((e) => e !== ignore && e.x === x && e.y === y))
+      if (
+        state.enemies.some(
+          (e) =>
+            e !== ignore && e.x === x && e.y === y && Math.abs(e.z - fz) <= 1,
+        )
+      )
         return false;
       x += dx;
       y += dy;
@@ -314,7 +357,7 @@ import './enemies.js';
     }
   }
   function drawWallTileTo(tctx, x, y) {
-    const { sx, sy } = tileToScreen(x, y, false);
+    const { sx, sy } = tileToScreen(x, y, 0, false);
     tctx.fillStyle = COLORS.wall;
     tctx.fillRect(sx, sy, tileSize, tileSize);
     tctx.strokeStyle = COLORS.wallEdge;
@@ -341,7 +384,7 @@ import './enemies.js';
       for (let x = 0; x < GRID_W; x++) {
         if (isWall(x, y)) drawWallTileTo(terrainCtx, x, y);
         else {
-          const { sx, sy } = tileToScreen(x, y, false);
+          const { sx, sy } = tileToScreen(x, y, 0, false);
           terrainCtx.fillStyle = COLORS.floor;
           terrainCtx.fillRect(
             sx + tilePad,
@@ -372,7 +415,7 @@ import './enemies.js';
     for (const c of state.map.chests)
       if (!c.opened) {
         drawOutlineRectTo(terrainCtx, c.x, c.y, COLORS.chest, 0.45, false);
-        const { sx, sy } = tileToScreen(c.x, c.y, false);
+        const { sx, sy } = tileToScreen(c.x, c.y, 0, false);
         const s2 = Math.max(4, tileSize * 0.35);
         terrainCtx.fillStyle = COLORS.chest;
         terrainCtx.fillRect(
@@ -391,7 +434,7 @@ import './enemies.js';
             : COLORS.nodeIdle;
       for (let yy = n.y; yy < n.y + n.size; yy++) {
         for (let xx = n.x; xx < n.x + n.size; xx++) {
-          const { sx, sy } = tileToScreen(xx, yy, false);
+          const { sx, sy } = tileToScreen(xx, yy, 0, false);
           terrainCtx.fillStyle = col;
           terrainCtx.fillRect(
             sx + tilePad,
@@ -405,7 +448,7 @@ import './enemies.js';
     terrainValid = true;
   }
   function drawOutlineRectTo(tctx, x, y, color, alpha = 0.28, useCam = true) {
-    const { sx, sy } = tileToScreen(x, y, useCam);
+    const { sx, sy } = tileToScreen(x, y, 0, useCam);
     tctx.save();
     tctx.globalAlpha = alpha;
     tctx.strokeStyle = color;
@@ -422,8 +465,8 @@ import './enemies.js';
   function drawOutlineRect(x, y, c, a) {
     drawOutlineRectTo(ctx, x, y, c, a);
   }
-  function drawHPBar(x, y, ratio) {
-    const { sx, sy } = tileToScreen(x, y);
+  function drawHPBar(x, y, z, ratio) {
+    const { sx, sy } = tileToScreen(x, y, z);
     const w = tileSize - tilePad * 2,
       h = Math.max(3, tileSize * 0.09);
     const bx = sx + tilePad,
@@ -435,7 +478,7 @@ import './enemies.js';
     ctx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapMeter(t) {
-    const { sx, sy } = tileToScreen(t.x, t.y);
+    const { sx, sy } = tileToScreen(t.x, t.y, t.z);
     let max = 1;
     switch (t.type) {
       case 'arrow':
@@ -460,7 +503,7 @@ import './enemies.js';
     ctx.fillRect(bx, by, w * ratio, h);
   }
   function drawTrapIcon(t) {
-    const { sx, sy } = tileToScreen(t.x, t.y);
+    const { sx, sy } = tileToScreen(t.x, t.y, t.z);
     const cx = sx + tileSize / 2,
       cy = sy + tileSize / 2;
     const size = tileSize - tilePad * 2;
@@ -508,7 +551,7 @@ import './enemies.js';
   }
   function drawDrops() {
     for (const d of state.drops) {
-      const { sx, sy } = tileToScreen(d.x, d.y);
+      const { sx, sy } = tileToScreen(d.x, d.y, d.z);
       const cx = sx + tileSize / 2,
         cy = sy + tileSize / 2;
       const r = tileSize / 4;
@@ -567,14 +610,21 @@ import './enemies.js';
       const dist = Math.max(
         Math.abs(d.x - state.player.x),
         Math.abs(d.y - state.player.y),
+        Math.abs(d.z - state.player.z),
       );
       if (dist <= 5 && dist > 0) {
         const dx = state.player.x > d.x ? 1 : state.player.x < d.x ? -1 : 0;
         const dy = state.player.y > d.y ? 1 : state.player.y < d.y ? -1 : 0;
+        const dz = state.player.z > d.z ? 1 : state.player.z < d.z ? -1 : 0;
         d.x += dx;
         d.y += dy;
+        d.z += dz;
       }
-      if (d.x === state.player.x && d.y === state.player.y) {
+      if (
+        d.x === state.player.x &&
+        d.y === state.player.y &&
+        d.z === state.player.z
+      ) {
         if (d.kind === 'mana') {
           state.mana += d.amount;
           logMsg(`Collected ${d.amount} mana.`);
@@ -590,17 +640,17 @@ import './enemies.js';
     }
     state.drops = next;
   }
-  function addFX(kind, x, y, life = 18) {
-    state.fx.push({ kind, x, y, life, max: life });
+  function addFX(kind, x, y, z = 0, life = 18) {
+    state.fx.push({ kind, x, y, z, life, max: life });
   }
-  function addProjectileFX(kind, sx, sy, tx, ty, color, life = 12) {
-    state.fx.push({ kind, sx, sy, tx, ty, color, life, max: life });
+  function addProjectileFX(kind, sx, sy, sz, tx, ty, tz, color, life = 12) {
+    state.fx.push({ kind, sx, sy, sz, tx, ty, tz, color, life, max: life });
   }
-  function dropLoot(x, y, amount) {
-    addFX('explosion', x, y, 12);
-    if (amount > 0) state.drops.push({ x, y, kind: 'mana', amount });
+  function dropLoot(x, y, z, amount) {
+    addFX('explosion', x, y, z, 12);
+    if (amount > 0) state.drops.push({ x, y, z, kind: 'mana', amount });
     if (Math.random() < 0.05)
-      state.drops.push({ x, y, kind: 'potion', amount: POTION_HEAL });
+      state.drops.push({ x, y, z, kind: 'potion', amount: POTION_HEAL });
   }
   function drawEffects() {
     const next = [];
@@ -608,7 +658,7 @@ import './enemies.js';
       const fx = state.fx[i];
       fx.life--;
       if (fx.life <= 0) continue;
-      const { sx, sy } = tileToScreen(fx.x, fx.y);
+      const { sx, sy } = tileToScreen(fx.x, fx.y, fx.z);
       ctx.save();
       if (fx.kind === 'hit') {
         ctx.globalAlpha = fx.life / fx.max;
@@ -721,7 +771,11 @@ import './enemies.js';
   }
 
   function drawPlayer() {
-    const { sx, sy } = tileToScreen(state.player.x, state.player.y);
+    const { sx, sy } = tileToScreen(
+      state.player.x,
+      state.player.y,
+      state.player.z,
+    );
     const bob = Math.sin(animT / 200) * tileSize * 0.1;
     ctx.save();
     ctx.translate(sx + tileSize / 2, sy + tileSize / 2 + bob);
@@ -740,7 +794,7 @@ import './enemies.js';
     ctx.restore();
   }
   function drawEnemy(e) {
-    const { sx, sy } = tileToScreen(e.x, e.y);
+    const { sx, sy } = tileToScreen(e.x, e.y, e.z);
     const bob = Math.sin(animT / 200 + (e.x + e.y)) * tileSize * 0.1;
     ctx.save();
     ctx.translate(sx + tileSize / 2, sy + tileSize / 2 + bob);
@@ -798,7 +852,7 @@ import './enemies.js';
     ctx.restore();
     const maxhp =
       e.maxhp || (ENEMY[e.kind] ? ENEMY[e.kind].hp : ENEMY.wraith.hp);
-    drawHPBar(e.x, e.y, Math.max(0, e.hp) / maxhp);
+    drawHPBar(e.x, e.y, e.z, Math.max(0, e.hp) / maxhp);
   }
   function draw() {
     const rect = canvas.getBoundingClientRect();
@@ -813,7 +867,11 @@ import './enemies.js';
     if (!terrainValid) drawTerrainAll();
     ctx.save();
     if (state.placeMode) {
-      const { sx: psx, sy: psy } = tileToScreen(state.player.x, state.player.y);
+      const { sx: psx, sy: psy } = tileToScreen(
+        state.player.x,
+        state.player.y,
+        state.player.z,
+      );
       ctx.translate(rect.width / 2, rect.height / 2);
       ctx.scale(PLACE_ZOOM, PLACE_ZOOM);
       ctx.translate(-psx - tileSize / 2, -psy - tileSize / 2);
@@ -920,7 +978,11 @@ import './enemies.js';
     let x = clientX - rect.left,
       y = clientY - rect.top;
     if (state.placeMode) {
-      const { sx: psx, sy: psy } = tileToScreen(state.player.x, state.player.y);
+      const { sx: psx, sy: psy } = tileToScreen(
+        state.player.x,
+        state.player.y,
+        state.player.z,
+      );
       x = (x - rect.width / 2) / PLACE_ZOOM + psx + tileSize / 2;
       y = (y - rect.height / 2) / PLACE_ZOOM + psy + tileSize / 2;
     }
@@ -1036,6 +1098,7 @@ import './enemies.js';
     ];
     while (q.length) {
       const cur = q.shift();
+      const curZ = state.map.height[cur.y][cur.x];
       const d = dist[cur.y][cur.x] + 1;
       for (let i = 0; i < dirs.length; i++) {
         const dx = dirs[i][0],
@@ -1043,6 +1106,9 @@ import './enemies.js';
           nx = cur.x + dx,
           ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
+        const nz = state.map.height[ny][nx];
+        if (!inBounds(nx, ny, nz)) continue;
+        if (Math.abs(nz - curZ) > 1) continue;
         if (isWall(nx, ny)) continue;
         if (dx && dy && isWall(cur.x + dx, cur.y) && isWall(cur.x, cur.y + dy))
           continue;
@@ -1059,7 +1125,8 @@ import './enemies.js';
   function playerMove(dx, dy, useDashKey = false) {
     if (state.won || state.lost) return;
     const px = state.player.x,
-      py = state.player.y;
+      py = state.player.y,
+      pz = state.player.z;
     let didDash = false;
     if (
       (state.dashArmed || useDashKey) &&
@@ -1067,18 +1134,28 @@ import './enemies.js';
       state.mana >= DASH_COST
     ) {
       let nx = state.player.x,
-        ny = state.player.y;
+        ny = state.player.y,
+        nz = state.player.z;
       for (let step = 0; step < DASH_DIST; step++) {
         const tx = nx + dx,
           ty = ny + dy;
-        if (!inBounds(tx, ty) || isWall(tx, ty)) break;
+        if (!inBounds(tx, ty)) break;
+        const tz = state.map.height[ty][tx];
+        if (!inBounds(tx, ty, tz) || isWall(tx, ty)) break;
+        if (Math.abs(tz - nz) > 1) break;
         if (dx && dy && isWall(nx + dx, ny) && isWall(nx, ny + dy)) break;
         nx = tx;
         ny = ty;
+        nz = tz;
       }
-      if (nx !== state.player.x || ny !== state.player.y) {
+      if (
+        nx !== state.player.x ||
+        ny !== state.player.y ||
+        nz !== state.player.z
+      ) {
         state.player.x = nx;
         state.player.y = ny;
+        state.player.z = nz;
         state.mana -= DASH_COST;
         state.dashCD = DASH_CD;
         state.dashArmed = false;
@@ -1089,7 +1166,10 @@ import './enemies.js';
     if (!didDash) {
       const nx = state.player.x + dx,
         ny = state.player.y + dy;
-      if (!inBounds(nx, ny) || isWall(nx, ny)) return;
+      if (!inBounds(nx, ny)) return;
+      const nz = state.map.height[ny][nx];
+      if (!inBounds(nx, ny, nz) || isWall(nx, ny)) return;
+      if (Math.abs(nz - state.player.z) > 1) return;
       if (
         dx &&
         dy &&
@@ -1099,6 +1179,7 @@ import './enemies.js';
         return;
       state.player.x = nx;
       state.player.y = ny;
+      state.player.z = nz;
     }
     const mdx = state.player.x - px,
       mdy = state.player.y - py;
@@ -1115,6 +1196,7 @@ import './enemies.js';
     if (
       state.player.x === state.map.exit.x &&
       state.player.y === state.map.exit.y &&
+      state.player.z === state.map.height[state.map.exit.y][state.map.exit.x] &&
       state.map.nodes.every((n) => n.captured)
     ) {
       state.won = true;
@@ -1133,12 +1215,14 @@ import './enemies.js';
     const t = state.selectedTool,
       cost = COSTS[t];
     state.mana -= cost;
-    if (t === 'arrow') state.towers.push({ x, y, type: t, ammo: ARROW_AMMO });
+    const z = state.map.height[y][x];
+    if (t === 'arrow')
+      state.towers.push({ x, y, z, type: t, ammo: ARROW_AMMO });
     else if (t === 'fire')
-      state.towers.push({ x, y, type: t, ammo: FIRE_AMMO });
+      state.towers.push({ x, y, z, type: t, ammo: FIRE_AMMO });
     else if (t === 'rune')
-      state.towers.push({ x, y, type: t, ammo: RUNE_TURNS });
-    else state.towers.push({ x, y, type: t });
+      state.towers.push({ x, y, z, type: t, ammo: RUNE_TURNS });
+    else state.towers.push({ x, y, z, type: t });
     state.placeMode = false;
     state.hover = null;
     logMsg(`Placed ${t} at (${x},${y}).`);
@@ -1148,13 +1232,14 @@ import './enemies.js';
     } else advanceTurn();
   }
   function isValidPlacement(x, y) {
-    if (!inBounds(x, y)) return { ok: false, reason: 'out of bounds' };
+    const z = state.map.height[y][x];
+    if (!inBounds(x, y, z)) return { ok: false, reason: 'out of bounds' };
     if (isWall(x, y)) return { ok: false, reason: 'wall tile' };
     if (isStart(x, y) || isExit(x, y))
       return { ok: false, reason: 'reserved tile' };
     if (isSpawner(x, y)) return { ok: false, reason: 'spawner tile' };
     if (isChest(x, y)) return { ok: false, reason: 'chest tile' };
-    if (state.player.x === x && state.player.y === y)
+    if (state.player.x === x && state.player.y === y && state.player.z === z)
       return { ok: false, reason: 'on player' };
     const dist = Math.max(
       Math.abs(state.player.x - x),
@@ -1165,7 +1250,7 @@ import './enemies.js';
         ok: false,
         reason: `must place within ${PLACE_RADIUS} tiles of player`,
       };
-    if (state.towers.some((t) => t.x === x && t.y === y))
+    if (state.towers.some((t) => t.x === x && t.y === y && t.z === z))
       return { ok: false, reason: 'occupied by a trap' };
     if (state.selectedTool === 'spike' && state.spikePlaced)
       return { ok: false, reason: 'only one spike per turn' };
@@ -1182,7 +1267,8 @@ import './enemies.js';
       (t) =>
         t.type === 'rune' &&
         Math.abs(t.x - state.player.x) + Math.abs(t.y - state.player.y) <=
-          RUNE_RADIUS,
+          RUNE_RADIUS &&
+        Math.abs(t.z - state.player.z) <= RUNE_RADIUS,
     );
   }
   function playerTakeDamage(amount) {
@@ -1237,12 +1323,14 @@ import './enemies.js';
             'projectile',
             t.x,
             t.y,
+            t.z,
             best.x,
             best.y,
+            best.z,
             COLORS.arrow,
             10,
           );
-          addFX('hit', best.x, best.y);
+          addFX('hit', best.x, best.y, best.z);
           ammo -= 1;
         }
         if (ammo > 0) {
@@ -1258,7 +1346,7 @@ import './enemies.js';
           for (const e of targets) {
             e.slowTurns = Math.max(e.slowTurns || 0, RUNE_SLOW_TURNS);
           }
-          addFX('slow', t.x, t.y, 14);
+          addFX('slow', t.x, t.y, t.z, 14);
         }
         ammo -= 1;
         if (ammo > 0) {
@@ -1274,12 +1362,13 @@ import './enemies.js';
           for (const e of targets) {
             e.hp -= FIRE_DMG;
             e.burn = Math.max(e.burn || 0, BURN_TURNS);
-            addFX('fire', e.x, e.y, 12);
+            addFX('fire', e.x, e.y, e.z, 12);
           }
           state.fx.push({
             kind: 'fireRange',
             x: t.x,
             y: t.y,
+            z: t.z,
             r: FIRE_RADIUS,
             life: 12,
             max: 12,
@@ -1296,7 +1385,7 @@ import './enemies.js';
     }
     const alive = [];
     for (const e of state.enemies) {
-      if (e.hp <= 0) dropLoot(e.x, e.y, rewardFor(e.kind));
+      if (e.hp <= 0) dropLoot(e.x, e.y, e.z, rewardFor(e.kind));
       else alive.push(e);
     }
     state.enemies = alive;
@@ -1308,9 +1397,9 @@ import './enemies.js';
       if (e.burn && e.burn > 0) {
         e.hp -= BURN_DMG;
         e.burn--;
-        addFX('fire', e.x, e.y, 10);
+        addFX('fire', e.x, e.y, e.z, 10);
       }
-      if (e.hp <= 0) dropLoot(e.x, e.y, rewardFor(e.kind));
+      if (e.hp <= 0) dropLoot(e.x, e.y, e.z, rewardFor(e.kind));
       else alive.push(e);
     }
     state.enemies = alive;
@@ -1341,12 +1430,16 @@ import './enemies.js';
       const cur = q.shift();
       const key = cur.x + ',' + cur.y;
       if (key === goalKey) break;
+      const curZ = state.map.height[cur.y][cur.x];
       for (const d of dirs) {
         const dx = d[0],
           dy = d[1],
           nx = cur.x + dx,
           ny = cur.y + dy;
         if (!inBounds(nx, ny)) continue;
+        const nz = state.map.height[ny][nx];
+        if (!inBounds(nx, ny, nz)) continue;
+        if (Math.abs(nz - curZ) > 1) continue;
         if (!allowPhase && isWall(nx, ny)) continue;
         if (
           dx &&
@@ -1392,7 +1485,11 @@ import './enemies.js';
         dy = d[1],
         tx = base.x + dx,
         ty = base.y + dy;
-      if (!inBounds(tx, ty) || isWall(tx, ty)) continue;
+      if (!inBounds(tx, ty)) continue;
+      const tz = state.map.height[ty][tx];
+      const bz = state.map.height[base.y][base.x];
+      if (!inBounds(tx, ty, tz) || Math.abs(tz - bz) > 1) continue;
+      if (isWall(tx, ty)) continue;
       if (
         dx &&
         dy &&
@@ -1401,9 +1498,14 @@ import './enemies.js';
       )
         continue;
       const key = tx + ',' + ty;
-      if (!occupied.has(key)) goals.push({ x: tx, y: ty });
+      if (!occupied.has(key)) goals.push({ x: tx, y: ty, z: tz });
     }
-    if (!goals.length) goals.push({ x: base.x, y: base.y });
+    if (!goals.length)
+      goals.push({
+        x: base.x,
+        y: base.y,
+        z: state.map.height[base.y][base.x],
+      });
     return goals;
   }
   function enemyAttack(e) {
@@ -1415,14 +1517,17 @@ import './enemies.js';
       const d = Math.max(
         Math.abs(e.x - state.player.x),
         Math.abs(e.y - state.player.y),
+        Math.abs(e.z - state.player.z),
       );
       if (d <= ENEMY.archer.range && clearShotToPlayer(e, e)) {
         addProjectileFX(
           'projectile',
           e.x,
           e.y,
+          e.z,
           state.player.x,
           state.player.y,
+          state.player.z,
           COLORS.enemyArcher,
           12,
         );
@@ -1436,11 +1541,12 @@ import './enemies.js';
       const d = Math.max(
         Math.abs(e.x - state.player.x),
         Math.abs(e.y - state.player.y),
+        Math.abs(e.z - state.player.z),
       );
       const dmg = ENEMY[e.kind]?.touch || 0;
       if (d === 1 && dmg > 0) {
         const dealt = playerTakeDamage(dmg);
-        addFX('slash', state.player.x, state.player.y, 12);
+        addFX('slash', state.player.x, state.player.y, state.player.z, 12);
         logMsg(`Enemy hit you for ${dealt} damage.`);
         return true;
       }
@@ -1464,22 +1570,29 @@ import './enemies.js';
     for (const d of dirs) {
       const nx = e.x + d[0],
         ny = e.y + d[1];
-      if (!inBounds(nx, ny) || isWall(nx, ny)) continue;
+      if (!inBounds(nx, ny)) continue;
+      const nz = state.map.height[ny][nx];
+      if (!inBounds(nx, ny, nz) || isWall(nx, ny)) continue;
+      if (Math.abs(nz - e.z) > 1) continue;
       const nk = nx + ',' + ny;
       if (occupied.has(nk)) continue;
-      if (state.towers.some((t) => t.x === nx && t.y === ny)) continue;
+      if (state.towers.some((t) => t.x === nx && t.y === ny && t.z === nz))
+        continue;
       const dist = Math.max(
         Math.abs(nx - state.player.x),
         Math.abs(ny - state.player.y),
+        Math.abs(nz - state.player.z),
       );
       const shot =
-        dist <= ENEMY.archer.range && clearShotToPlayer({ x: nx, y: ny }, e);
+        dist <= ENEMY.archer.range &&
+        clearShotToPlayer({ x: nx, y: ny, z: nz }, e);
       const score = Math.abs(dist - ENEMY.archer.range) + (shot ? 0 : 1);
-      if (!best || score < best.score) best = { nx, ny, score };
+      if (!best || score < best.score) best = { nx, ny, nz, score };
     }
     if (best) {
       e.x = best.nx;
       e.y = best.ny;
+      e.z = best.nz;
       occupied.add(best.nx + ',' + best.ny);
     } else occupied.add(key);
   }
@@ -1487,7 +1600,11 @@ import './enemies.js';
     const key = e.x + ',' + e.y;
     occupied.delete(key);
     const traps = new Set(state.towers.map((t) => t.x + ',' + t.y));
-    let base = { x: state.player.x, y: state.player.y };
+    let base = {
+      x: state.player.x,
+      y: state.player.y,
+      z: state.player.z,
+    };
     if (
       state.lastMove &&
       Math.max(Math.abs(e.x - state.player.x), Math.abs(e.y - state.player.y)) >
@@ -1495,14 +1612,19 @@ import './enemies.js';
     ) {
       const px = state.player.x + state.lastMove.dx,
         py = state.player.y + state.lastMove.dy;
-      if (inBounds(px, py) && !isWall(px, py)) base = { x: px, y: py };
+      if (!inBounds(px, py));
+      else {
+        const pz = state.map.height[py][px];
+        if (inBounds(px, py, pz) && !isWall(px, py))
+          base = { x: px, y: py, z: pz };
+      }
     }
     const goals = adjacentTargets(base, occupied);
     let best = null,
       bestLen = 1e9;
     for (const g of goals) {
       let p = bfsPath(
-        { x: e.x, y: e.y },
+        { x: e.x, y: e.y, z: e.z },
         g,
         e.kind === 'wraith',
         occupied,
@@ -1511,7 +1633,7 @@ import './enemies.js';
       );
       if (!p)
         p = bfsPath(
-          { x: e.x, y: e.y },
+          { x: e.x, y: e.y, z: e.z },
           g,
           e.kind === 'wraith',
           occupied,
@@ -1529,6 +1651,7 @@ import './enemies.js';
       if (!occupied.has(nk)) {
         e.x = step.x;
         e.y = step.y;
+        e.z = state.map.height[step.y][step.x];
         occupied.add(nk);
       } else occupied.add(key);
     } else occupied.add(key);
@@ -1545,8 +1668,8 @@ import './enemies.js';
       bestLen = 1e9;
     for (const t of traps) {
       const p = bfsPath(
-        { x: e.x, y: e.y },
-        { x: t.x, y: t.y },
+        { x: e.x, y: e.y, z: e.z },
+        { x: t.x, y: t.y, z: t.z },
         false,
         occupied,
         new Set(),
@@ -1562,6 +1685,7 @@ import './enemies.js';
       const nk = step.x + ',' + step.y;
       e.x = step.x;
       e.y = step.y;
+      e.z = state.map.height[step.y][step.x];
       occupied.add(nk);
     } else {
       occupied.add(key);
@@ -1573,7 +1697,7 @@ import './enemies.js';
       const d = Math.max(Math.abs(other.x - s.x), Math.abs(other.y - s.y));
       if (d <= SAB_EXP_RADIUS) {
         other.hp -= SAB_EXP_DMG;
-        addFX('hit', other.x, other.y);
+        addFX('hit', other.x, other.y, other.z);
       }
     }
     if (
@@ -1583,14 +1707,15 @@ import './enemies.js';
       ) <= SAB_EXP_RADIUS
     ) {
       const dealt = playerTakeDamage(SAB_EXP_DMG);
-      addFX('hit', state.player.x, state.player.y);
+      addFX('hit', state.player.x, state.player.y, state.player.z);
       logMsg(`Saboteur explosion hits you for ${dealt}.`);
     }
-    addFX('saboteurExplosion', s.x, s.y, 12);
+    addFX('saboteurExplosion', s.x, s.y, s.z, 12);
     state.fx.push({
       kind: 'saboteurRange',
       x: s.x,
       y: s.y,
+      z: s.z,
       r: SAB_EXP_RADIUS,
       life: 12,
       max: 12,
@@ -1602,7 +1727,7 @@ import './enemies.js';
     const survivors = [];
     for (const e of state.enemies) {
       if (e.hp <= 0) {
-        dropLoot(e.x, e.y, rewardFor(e.kind));
+        dropLoot(e.x, e.y, e.z, rewardFor(e.kind));
         continue;
       }
       if (e.slowTurns && e.slowTurns > 0 && state.turn % 2 === 1) {
@@ -1629,14 +1754,16 @@ import './enemies.js';
         }
       } else if (e.kind === 'saboteur') {
         moveSaboteur(e, occupied);
-        const tidx = state.towers.findIndex((t) => t.x === e.x && t.y === e.y);
+        const tidx = state.towers.findIndex(
+          (t) => t.x === e.x && t.y === e.y && t.z === e.z,
+        );
         if (tidx !== -1) {
           state.towers.splice(tidx, 1);
           terrainValid = false;
           logMsg('Saboteur detonated after destroying a trap!');
           saboteurExplode(e);
           occupied.delete(e.x + ',' + e.y);
-          dropLoot(e.x, e.y, rewardFor(e.kind));
+          dropLoot(e.x, e.y, e.z, rewardFor(e.kind));
           continue;
         }
         acted = enemyAttack(e);
@@ -1654,19 +1781,19 @@ import './enemies.js';
         acted = enemyAttack(e);
       }
       const idx = state.towers.findIndex(
-        (t) => t.type === 'spike' && t.x === e.x && t.y === e.y,
+        (t) => t.type === 'spike' && t.x === e.x && t.y === e.y && t.z === e.z,
       );
       if (idx !== -1) {
         e.hp -= SPIKE_DMG;
         state.towers.splice(idx, 1);
         logMsg(`Spike hits for ${SPIKE_DMG}.`);
-        addFX('hit', e.x, e.y);
+        addFX('hit', e.x, e.y, e.z);
       }
       if (e.hp > 0) {
         survivors.push(e);
         if (e.slowTurns && e.slowTurns > 0 && state.turn % 2 === 0)
           e.slowTurns--;
-      } else dropLoot(e.x, e.y, rewardFor(e.kind));
+      } else dropLoot(e.x, e.y, e.z, rewardFor(e.kind));
       if (state.hp <= 0) break;
     }
     state.enemies = survivors;
@@ -1697,10 +1824,15 @@ import './enemies.js';
         Math.abs(p.x - state.player.x),
         Math.abs(p.y - state.player.y),
       );
+      const pz = state.map.height[p.y][p.x];
       return (
         d >= minR &&
-        !(p.x === state.player.x && p.y === state.player.y) &&
-        !state.enemies.some((e) => e.x === p.x && e.y === p.y)
+        !(
+          p.x === state.player.x &&
+          p.y === state.player.y &&
+          pz === state.player.z
+        ) &&
+        !state.enemies.some((e) => e.x === p.x && e.y === p.y && e.z === pz)
       );
     });
     if (candidates.length)
@@ -1731,6 +1863,7 @@ import './enemies.js';
     state.enemies.push({
       x: pos.x,
       y: pos.y,
+      z: state.map.height[pos.y][pos.x],
       hp: base.hp,
       maxhp: base.hp,
       kind,
@@ -1772,6 +1905,7 @@ import './enemies.js';
           state.enemies.push({
             x: pos.x,
             y: pos.y,
+            z: state.map.height[pos.y][pos.x],
             hp: base.hp,
             maxhp: base.hp,
             kind,
@@ -1841,7 +1975,11 @@ import './enemies.js';
       hp: START_HP,
       mana: START_MANA,
       nextSpawn: 1,
-      player: { x: map.start.x, y: map.start.y },
+      player: {
+        x: map.start.x,
+        y: map.start.y,
+        z: map.height[map.start.y][map.start.x],
+      },
       enemies: [],
       towers: [],
       drops: [],
@@ -1865,6 +2003,8 @@ import './enemies.js';
       },
       cameraX: 0,
       cameraY: 0,
+      cameraZ: 0,
+      cameraMatrix: null,
       spikePlaced: false,
       enemyCap: ENEMY_CAP,
       exitWarned: false,
