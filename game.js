@@ -794,8 +794,8 @@ import * as THREE from './lib/three.module.js';
   document.addEventListener('keydown', (e) => {
     if (state.won || state.lost || state.placeMode) return;
     const key = e.key.toLowerCase();
-    if (['arrowup', 'w'].includes(key)) playerMove(0, -1, e.shiftKey);
-    else if (['arrowdown', 's'].includes(key)) playerMove(0, 1, e.shiftKey);
+    if (['arrowup', 'w'].includes(key)) playerMove(0, 1, e.shiftKey);
+    else if (['arrowdown', 's'].includes(key)) playerMove(0, -1, e.shiftKey);
     else if (['arrowleft', 'a'].includes(key)) playerMove(-1, 0, e.shiftKey);
     else if (['arrowright', 'd'].includes(key)) playerMove(1, 0, e.shiftKey);
     else if (key === 'q') toggleDashArm();
