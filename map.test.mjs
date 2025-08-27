@@ -15,7 +15,7 @@ test('map contains two clear control nodes', () => {
   for (const n of nodes) {
     for (let y = 0; y < n.size; y++) {
       for (let x = 0; x < n.size; x++) {
-        assert.equal(grid[n.y + y][n.x + x], 0);
+        assert.equal(grid[n.z][n.y + y][n.x + x], 0);
       }
     }
   }
