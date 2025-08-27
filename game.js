@@ -755,12 +755,13 @@ import * as THREE from './lib/three.module.js';
     overlayCanvas.height = rect.height;
     overlayCtx.clearRect(0, 0, rect.width, rect.height);
     tileSize = rect.width / VIEW_W;
-    camera.position.set(
-      state.player.x + 0.5,
-      state.player.y + 0.5,
-      10,
-    );
-    camera.lookAt(state.player.x + 0.5, state.player.y + 0.5, 0);
+    const half = VIEW_W / 2;
+    const px = state.player.x + 0.5;
+    const py = state.player.y + 0.5;
+    const camX = Math.min(Math.max(px, half), GRID_W - half);
+    const camY = Math.min(Math.max(py, half), GRID_H - half);
+    camera.position.set(camX, camY, 10);
+    camera.lookAt(camX, camY, 0);
     if (!terrainValid) drawTerrainAll();
     drawPlayer();
     const active = new Set();
