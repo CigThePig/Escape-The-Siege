@@ -44,7 +44,7 @@ import {
 import './ui.js';
 import { buildMap } from './map.js';
 import './enemies.js';
-import * as THREE from 'three';
+import * as THREE from './node_modules/three/build/three.module.js';
 
 (() => {
   let tileSize = 1,
