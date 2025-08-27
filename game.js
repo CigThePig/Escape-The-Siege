@@ -191,7 +191,10 @@ import './enemies.js';
       0,
       Math.min(state.player.x - Math.floor(VIEW_W / 2), GRID_W - VIEW_W),
     );
-    state.cameraY = 0;
+    state.cameraY = Math.max(
+      0,
+      Math.min(state.player.y - Math.floor(VIEW_W / 2), GRID_H - VIEW_W),
+    );
   }
 
   const LEGEND_DATA = [
