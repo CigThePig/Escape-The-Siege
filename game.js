@@ -247,9 +247,11 @@ import * as THREE from './lib/three.module.js';
   }
   function projectToScreen(x, y, z = 0) {
     const v = new THREE.Vector3(x + 0.5, y + 0.5, z).project(camera);
+    const width = overlayCanvas.width / dpr;
+    const height = overlayCanvas.height / dpr;
     return {
-      sx: ((v.x + 1) / 2) * overlayCanvas.width,
-      sy: ((1 - v.y) / 2) * overlayCanvas.height,
+      sx: ((v.x + 1) / 2) * width,
+      sy: ((1 - v.y) / 2) * height,
     };
   }
   function isWall(x, y, z) {
@@ -383,8 +385,8 @@ import * as THREE from './lib/three.module.js';
       const color = node.captured
         ? COLORS.nodeCaptured
         : node.capturing
-        ? COLORS.nodeCapturing
-        : COLORS.nodeIdle;
+          ? COLORS.nodeCapturing
+          : COLORS.nodeIdle;
       const geo = new THREE.CircleGeometry(node.size / 2, 16);
       const mat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(color),
