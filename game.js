@@ -713,8 +713,8 @@ import * as THREE from 'three';
     }
     playerMesh.position.set(
       state.player.x + 0.5,
-      state.player.y + 0.5 + bob,
-      0.2,
+      state.player.y + 0.5,
+      state.player.z + bob + 0.2,
     );
   }
   function drawEnemy(e) {
@@ -752,7 +752,7 @@ import * as THREE from 'three';
       enemyMeshes.set(e, mesh);
       scene.add(mesh);
     }
-    mesh.position.set(e.x + 0.5, e.y + 0.5 + bob, 0.2);
+    mesh.position.set(e.x + 0.5, e.y + 0.5, e.z + bob + 0.2);
   }
   function draw() {
     const rect = canvas.getBoundingClientRect();
