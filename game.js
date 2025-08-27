@@ -67,6 +67,7 @@ import * as THREE from './lib/three.module.js';
   const overlayCtx = overlayCanvas.getContext('2d');
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, VIEW_W, VIEW_W, 0, 0.1, 1000);
+  camera.up.set(0, 0, 1);
   camera.position.set(VIEW_W / 2, VIEW_W / 2, 10);
   scene.add(new THREE.AmbientLight(0xffffff, 0.8));
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -371,7 +372,6 @@ import * as THREE from './lib/three.module.js';
           mesh.position.set(x + 0.5, y + 0.5, (z + 1) / 2);
         } else {
           mesh = new THREE.Mesh(floorGeo, floorMat);
-          mesh.rotation.x = -Math.PI / 2;
           mesh.position.set(x + 0.5, y + 0.5, z);
         }
         terrainGroup.add(mesh);
