@@ -351,7 +351,7 @@ import * as THREE from './lib/three.module.js';
 
     // shared geometry and materials for floors and walls
     const floorGeo = new THREE.PlaneGeometry(1, 1);
-    floorGeo.rotateX(-Math.PI / 2);
+    // floorGeo.rotateX(-Math.PI / 2);
     const floorMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(COLORS.floor),
     });
@@ -830,10 +830,11 @@ import * as THREE from './lib/three.module.js';
       x = (x - rect.width / 2) / PLACE_ZOOM + psx;
       y = (y - rect.height / 2) / PLACE_ZOOM + psy;
     }
-    const nx =
-      (Math.max(0, Math.min(rect.width - 1, x)) / rect.width) * 2 - 1;
-    const ny =
-      -((Math.max(0, Math.min(rect.height - 1, y)) / rect.height) * 2 - 1);
+    const nx = (Math.max(0, Math.min(rect.width - 1, x)) / rect.width) * 2 - 1;
+    const ny = -(
+      (Math.max(0, Math.min(rect.height - 1, y)) / rect.height) * 2 -
+      1
+    );
     const v = new THREE.Vector3(nx, ny, 0).unproject(camera);
     return { x: Math.floor(v.x), y: Math.floor(v.y) };
   }
