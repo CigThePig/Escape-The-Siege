@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "prettier": "^3.6.2"
+  },
+  "dependencies": {
+    "three": "^0.179.1"
   }
 }

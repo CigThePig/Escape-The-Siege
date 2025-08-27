@@ -43,22 +43,30 @@ import {
 import './ui.js';
 import { buildMap } from './map.js';
 import './enemies.js';
+import * as THREE from 'three';
 
 (() => {
-  let tileSize = 0,
-    tilePad = 1,
+  let tileSize = 1,
+    tilePad = 0,
     animT = 0;
-  let terrainCanvas = null,
-    terrainCtx = null,
-    terrainValid = false;
+  let terrainValid = false;
   let state;
 
   const canvas = document.getElementById('game');
-  const ctx =
-    canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
-  const raf =
-    window.requestAnimationFrame ||
-    ((cb) => setTimeout(() => cb(Date.now()), 16));
+  const renderer = new THREE.WebGLRenderer({ canvas });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(0, VIEW_W, VIEW_W, 0, 0.1, 1000);
+  camera.position.set(VIEW_W / 2, VIEW_W / 2, 10);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  dirLight.position.set(0, 0, 10);
+  scene.add(dirLight);
+  const terrainGroup = new THREE.Group();
+  scene.add(terrainGroup);
+  let playerMesh = null;
+  const enemyMeshes = new Map();
+
   const hud = {
     hp: document.getElementById('hud-hp'),
     mana: document.getElementById('hud-mana'),
@@ -297,109 +305,20 @@ import './enemies.js';
     }
     return true;
   }
-  function ensureOffscreen() {
-    if (!terrainCanvas) {
-      terrainCanvas = document.createElement('canvas');
-      terrainCtx =
-        terrainCanvas.getContext('2d', { alpha: false }) ||
-        terrainCanvas.getContext('2d');
-    }
-    const w = Math.floor(tileSize * GRID_W),
-      h = Math.floor(tileSize * GRID_H);
-    if (terrainCanvas.width !== w || terrainCanvas.height !== h) {
-      terrainCanvas.width = w;
-      terrainCanvas.height = h;
-      terrainCtx.setTransform(1, 0, 0, 1, 0, 0);
-      terrainValid = false;
-    }
-  }
-  function drawWallTileTo(tctx, x, y) {
-    const { sx, sy } = tileToScreen(x, y, false);
-    tctx.fillStyle = COLORS.wall;
-    tctx.fillRect(sx, sy, tileSize, tileSize);
-    tctx.strokeStyle = COLORS.wallEdge;
-    tctx.lineWidth = Math.max(1, tileSize * 0.06);
-    tctx.strokeRect(sx + 0.5, sy + 0.5, tileSize - 1, tileSize - 1);
-    tctx.save();
-    tctx.beginPath();
-    tctx.rect(sx + 1, sy + 1, tileSize - 2, tileSize - 2);
-    tctx.clip();
-    tctx.strokeStyle = 'rgba(255,255,255,.06)';
-    tctx.lineWidth = Math.max(1, tileSize * 0.05);
-    const step = Math.max(4, tileSize / 4);
-    for (let k = -tileSize; k < tileSize * 2; k += step) {
-      tctx.beginPath();
-      tctx.moveTo(sx + k, sy);
-      tctx.lineTo(sx, sy + k);
-      tctx.stroke();
-    }
-    tctx.restore();
-  }
+  function ensureOffscreen() {}
+  function drawWallTileTo() {}
   function drawTerrainAll() {
-    terrainCtx.clearRect(0, 0, terrainCanvas.width, terrainCanvas.height);
-    for (let y = 0; y < GRID_H; y++)
+    terrainGroup.clear();
+    for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        if (isWall(x, y)) drawWallTileTo(terrainCtx, x, y);
-        else {
-          const { sx, sy } = tileToScreen(x, y, false);
-          terrainCtx.fillStyle = COLORS.floor;
-          terrainCtx.fillRect(
-            sx + tilePad,
-            sy + tilePad,
-            tileSize - tilePad * 2,
-            tileSize - tilePad * 2,
-          );
-        }
-      }
-    drawOutlineRectTo(
-      terrainCtx,
-      state.map.start.x,
-      state.map.start.y,
-      COLORS.start,
-      0.35,
-      false,
-    );
-    drawOutlineRectTo(
-      terrainCtx,
-      state.map.exit.x,
-      state.map.exit.y,
-      COLORS.exit,
-      0.35,
-      false,
-    );
-    for (const s of state.map.spawners)
-      drawOutlineRectTo(terrainCtx, s.x, s.y, COLORS.spawner, 0.35, false);
-    for (const c of state.map.chests)
-      if (!c.opened) {
-        drawOutlineRectTo(terrainCtx, c.x, c.y, COLORS.chest, 0.45, false);
-        const { sx, sy } = tileToScreen(c.x, c.y, false);
-        const s2 = Math.max(4, tileSize * 0.35);
-        terrainCtx.fillStyle = COLORS.chest;
-        terrainCtx.fillRect(
-          sx + (tileSize - s2) / 2,
-          sy + (tileSize - s2) / 2,
-          s2,
-          s2,
-        );
-      }
-    for (const n of state.map.nodes) {
-      const col =
-        n.progress >= n.max
-          ? COLORS.nodeCaptured
-          : n.capturing
-            ? COLORS.nodeCapturing
-            : COLORS.nodeIdle;
-      for (let yy = n.y; yy < n.y + n.size; yy++) {
-        for (let xx = n.x; xx < n.x + n.size; xx++) {
-          const { sx, sy } = tileToScreen(xx, yy, false);
-          terrainCtx.fillStyle = col;
-          terrainCtx.fillRect(
-            sx + tilePad,
-            sy + tilePad,
-            tileSize - tilePad * 2,
-            tileSize - tilePad * 2,
-          );
-        }
+        const color = isWall(x, y) ? COLORS.wall : COLORS.floor;
+        const geo = new THREE.PlaneGeometry(1, 1);
+        const mat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(color),
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x + 0.5, y + 0.5, 0);
+        terrainGroup.add(mesh);
       }
     }
     terrainValid = true;
@@ -721,172 +640,84 @@ import './enemies.js';
   }
 
   function drawPlayer() {
-    const { sx, sy } = tileToScreen(state.player.x, state.player.y);
-    const bob = Math.sin(animT / 200) * tileSize * 0.1;
-    ctx.save();
-    ctx.translate(sx + tileSize / 2, sy + tileSize / 2 + bob);
-    const r = tileSize / 2 - tilePad;
-    ctx.fillStyle = COLORS.player;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    const eyeOffset = tileSize * 0.15,
-      eyeR = tileSize * 0.07;
-    ctx.beginPath();
-    ctx.arc(-eyeOffset, -eyeOffset, eyeR, 0, Math.PI * 2);
-    ctx.arc(eyeOffset, -eyeOffset, eyeR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    const bob = Math.sin(animT / 200) * 0.1;
+    if (!playerMesh) {
+      const geo = new THREE.CircleGeometry(0.45, 16);
+      const mat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(COLORS.player),
+      });
+      playerMesh = new THREE.Mesh(geo, mat);
+      scene.add(playerMesh);
+    }
+    playerMesh.position.set(
+      state.player.x + 0.5,
+      state.player.y + 0.5 + bob,
+      0.2,
+    );
   }
   function drawEnemy(e) {
-    const { sx, sy } = tileToScreen(e.x, e.y);
-    const bob = Math.sin(animT / 200 + (e.x + e.y)) * tileSize * 0.1;
-    ctx.save();
-    ctx.translate(sx + tileSize / 2, sy + tileSize / 2 + bob);
-    const r = tileSize / 2 - tilePad;
-    let col;
-    switch (e.kind) {
-      case 'goblin':
-        col = COLORS.enemyGoblin;
-        break;
-      case 'archer':
-        col = COLORS.enemyArcher;
-        break;
-      case 'wraith':
-        col = COLORS.enemyWraith;
-        break;
-      case 'brute':
-        col = COLORS.enemyBrute;
-        break;
-      case 'saboteur':
-        col = COLORS.enemySaboteur;
-        break;
-      case 'hunter':
-        col = COLORS.enemyHunter;
-        break;
-      default:
-        col = COLORS.enemyWraith;
+    const bob = Math.sin(animT / 200 + (e.x + e.y)) * 0.1;
+    let mesh = enemyMeshes.get(e);
+    if (!mesh) {
+      let col;
+      switch (e.kind) {
+        case 'goblin':
+          col = COLORS.enemyGoblin;
+          break;
+        case 'archer':
+          col = COLORS.enemyArcher;
+          break;
+        case 'wraith':
+          col = COLORS.enemyWraith;
+          break;
+        case 'brute':
+          col = COLORS.enemyBrute;
+          break;
+        case 'saboteur':
+          col = COLORS.enemySaboteur;
+          break;
+        case 'hunter':
+          col = COLORS.enemyHunter;
+          break;
+        default:
+          col = COLORS.enemyWraith;
+      }
+      const geo = new THREE.CircleGeometry(0.45, 16);
+      const mat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(col),
+      });
+      mesh = new THREE.Mesh(geo, mat);
+      enemyMeshes.set(e, mesh);
+      scene.add(mesh);
     }
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    const eyeR = tileSize * 0.07;
-    ctx.beginPath();
-    ctx.arc(-r * 0.3, -r * 0.2, eyeR, 0, Math.PI * 2);
-    ctx.arc(r * 0.3, -r * 0.2, eyeR, 0, Math.PI * 2);
-    ctx.fill();
-    if (e.kind === 'archer') {
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = Math.max(2, tileSize * 0.07);
-      ctx.beginPath();
-      ctx.moveTo(-r * 0.6, 0);
-      ctx.lineTo(r * 0.6, 0);
-      ctx.stroke();
-    }
-    if (e.kind === 'wraith') {
-      ctx.fillStyle = 'rgba(0,0,0,.3)';
-      ctx.beginPath();
-      ctx.moveTo(-r, r * 0.2);
-      ctx.lineTo(0, r);
-      ctx.lineTo(r, r * 0.2);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-    const maxhp =
-      e.maxhp || (ENEMY[e.kind] ? ENEMY[e.kind].hp : ENEMY.wraith.hp);
-    drawHPBar(e.x, e.y, Math.max(0, e.hp) / maxhp);
+    mesh.position.set(e.x + 0.5, e.y + 0.5 + bob, 0.2);
   }
   function draw() {
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * dpr);
-    canvas.height = Math.floor(rect.height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    renderer.setSize(rect.width, rect.height, false);
     tileSize = rect.width / VIEW_W;
-    tilePad = Math.max(1, Math.floor(tileSize * 0.03));
     updateCamera();
-    ensureOffscreen();
-    if (!terrainValid) drawTerrainAll();
-    ctx.save();
-    if (state.placeMode) {
-      const { sx: psx, sy: psy } = tileToScreen(state.player.x, state.player.y);
-      ctx.translate(rect.width / 2, rect.height / 2);
-      ctx.scale(PLACE_ZOOM, PLACE_ZOOM);
-      ctx.translate(-psx - tileSize / 2, -psy - tileSize / 2);
-    }
-    ctx.drawImage(
-      terrainCanvas,
-      -state.cameraX * tileSize,
-      -state.cameraY * tileSize,
+    camera.position.set(
+      state.cameraX + VIEW_W / 2,
+      state.cameraY + VIEW_W / 2,
+      10,
     );
-    if (state.placeMode) highlightPlacementArea();
-    const pulse = (Math.sin(animT / 600) + 1) / 2;
-    for (const s of state.map.spawners) {
-      const { sx, sy } = tileToScreen(s.x, s.y);
-      ctx.save();
-      ctx.globalAlpha = 0.35 + 0.35 * pulse;
-      ctx.strokeStyle = COLORS.spawner;
-      ctx.lineWidth = Math.max(2, tileSize * 0.1);
-      ctx.beginPath();
-      ctx.arc(
-        sx + tileSize / 2,
-        sy + tileSize / 2,
-        tileSize * 0.42 + tileSize * 0.08 * pulse,
-        0,
-        Math.PI * 2,
-      );
-      ctx.stroke();
-      ctx.restore();
+    if (!terrainValid) drawTerrainAll();
+    drawPlayer();
+    const active = new Set();
+    for (const e of state.enemies) {
+      drawEnemy(e);
+      active.add(e);
     }
-    if (state.placeMode) {
-      for (const t of state.towers) {
-        if (t.type === 'arrow')
-          outlineRangeTiles(t.x, t.y, TRAP_RANGE, COLORS.arrow);
-        if (t.type === 'rune')
-          outlineRangeTiles(t.x, t.y, RUNE_RADIUS, COLORS.rune);
-        if (t.type === 'fire')
-          outlineRangeTiles(t.x, t.y, FIRE_RADIUS, COLORS.fire);
-        if (t.type === 'spike') drawOutlineRect(t.x, t.y, COLORS.spike, 0.25);
+    for (const [e, mesh] of enemyMeshes) {
+      if (!active.has(e)) {
+        scene.remove(mesh);
+        enemyMeshes.delete(e);
       }
     }
-    for (const t of state.towers) {
-      drawTrapIcon(t);
-      if (t.ammo !== undefined) drawTrapMeter(t);
-    }
-    drawDrops();
-    for (const e of state.enemies) drawEnemy(e);
-    drawPlayer();
-    drawEffects();
-    ctx.restore();
-    if (state.won || state.lost) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,.55)';
-      ctx.fillRect(0, 0, rect.width, rect.height);
-      ctx.fillStyle = state.won ? '#7dff9d' : '#ff6b6b';
-      ctx.font = 'bold 26px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(
-        state.won ? 'YOU ESCAPED!' : 'DEFEATED',
-        rect.width / 2,
-        rect.height / 2 - 10,
-      );
-      ctx.fillStyle = '#e8ecff';
-      ctx.font = '16px system-ui';
-      ctx.fillText(
-        'Tap "New Game" to try again',
-        rect.width / 2,
-        rect.height / 2 + 18,
-      );
-      ctx.restore();
-    }
+    renderer.render(scene, camera);
   }
   window.addEventListener('resize', () => {
-    ensureOffscreen();
     terrainValid = false;
   });
   document.addEventListener('keydown', (e) => {
@@ -1872,14 +1703,6 @@ import './enemies.js';
     state.visited[state.player.y][state.player.x] = true;
     clearLog();
     logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * dpr);
-    canvas.height = Math.floor(rect.height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    tileSize = rect.width / VIEW_W;
-    tilePad = Math.max(1, Math.floor(tileSize * 0.03));
-    ensureOffscreen();
     terrainValid = false;
     updateCamera();
     renderTrapbar(TRAP_DEFS, state);
