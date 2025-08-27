@@ -25,6 +25,7 @@ import {
   RUNE_SLOW_TURNS,
   DASH_CD,
   DASH_COST,
+  DASH_DIST,
   DENSITY_TILE_WEIGHT,
   DENSITY_NEIGHBOR_WEIGHT,
   PATIENCE_PROB,
@@ -1067,7 +1068,7 @@ import './enemies.js';
     ) {
       let nx = state.player.x,
         ny = state.player.y;
-      for (let step = 0; step < 2; step++) {
+      for (let step = 0; step < DASH_DIST; step++) {
         const tx = nx + dx,
           ty = ny + dy;
         if (!inBounds(tx, ty) || isWall(tx, ty)) break;
@@ -1175,6 +1176,20 @@ import './enemies.js';
   function flashHP() {
     hud.hpCard.classList.add('flash');
     setTimeout(() => hud.hpCard.classList.remove('flash'), 250);
+  }
+  function isPlayerShielded() {
+    return state.towers.some(
+      (t) =>
+        t.type === 'rune' &&
+        Math.abs(t.x - state.player.x) + Math.abs(t.y - state.player.y) <=
+          RUNE_RADIUS,
+    );
+  }
+  function playerTakeDamage(amount) {
+    const dmg = isPlayerShielded() ? amount / 2 : amount;
+    state.hp -= dmg;
+    flashHP();
+    return dmg;
   }
   function advanceTurn() {
     if (state.won || state.lost) return;
@@ -1411,9 +1426,8 @@ import './enemies.js';
           COLORS.enemyArcher,
           12,
         );
-        state.hp -= ENEMY.archer.dmg;
-        flashHP();
-        logMsg(`Skeleton archer hits you for ${ENEMY.archer.dmg}.`);
+        const dealt = playerTakeDamage(ENEMY.archer.dmg);
+        logMsg(`Skeleton archer hits you for ${dealt}.`);
         e.cooldown = ENEMY.archer.cd;
         return true;
       }
@@ -1425,10 +1439,9 @@ import './enemies.js';
       );
       const dmg = ENEMY[e.kind]?.touch || 0;
       if (d === 1 && dmg > 0) {
-        state.hp -= dmg;
-        flashHP();
+        const dealt = playerTakeDamage(dmg);
         addFX('slash', state.player.x, state.player.y, 12);
-        logMsg(`Enemy hit you for ${dmg} damage.`);
+        logMsg(`Enemy hit you for ${dealt} damage.`);
         return true;
       }
       return false;
@@ -1569,10 +1582,9 @@ import './enemies.js';
         Math.abs(state.player.y - s.y),
       ) <= SAB_EXP_RADIUS
     ) {
-      state.hp -= SAB_EXP_DMG;
-      flashHP();
+      const dealt = playerTakeDamage(SAB_EXP_DMG);
       addFX('hit', state.player.x, state.player.y);
-      logMsg(`Saboteur explosion hits you for ${SAB_EXP_DMG}.`);
+      logMsg(`Saboteur explosion hits you for ${dealt}.`);
     }
     addFX('saboteurExplosion', s.x, s.y, 12);
     state.fx.push({
