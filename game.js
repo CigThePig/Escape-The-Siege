@@ -398,6 +398,7 @@ import * as THREE from './lib/three.module.js';
           mesh.position.set(x + 0.5, y + 0.5, (z + 1) / 2);
         } else {
           mesh = new THREE.Mesh(floorGeo, floorMat);
+          mesh.rotation.x = -Math.PI / 2;
           mesh.position.set(x + 0.5, y + 0.5, z);
         }
         terrainGroup.add(mesh);
