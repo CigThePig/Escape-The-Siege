@@ -1,6 +1,6 @@
 export const GRID_W = 90,
   GRID_H = 30,
-  VIEW_W = 30;
+  VIEW_W = 21;
 export const PASSIVE_MANA = 1,
   START_MANA = 10,
   START_HP = 15;
@@ -16,7 +16,8 @@ export const RUNE_RADIUS = 15,
   SAB_EXP_RADIUS = 3,
   SPIKE_DMG = 8;
 export const PLACE_RADIUS = 4,
-  PLACE_ZOOM = 1.4;
+  // Zoom applied when placing traps. With VIEW_W=21 this reveals ~13×13 tiles.
+  PLACE_ZOOM = 1.615;
 export const ARROW_AMMO = 5,
   FIRE_AMMO = 10,
   RUNE_TURNS = 20;
