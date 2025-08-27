@@ -1,6 +1,7 @@
 import {
   GRID_W,
   GRID_H,
+  GRID_D,
   VIEW_W,
   PASSIVE_MANA,
   START_MANA,
@@ -251,6 +252,7 @@ import * as THREE from 'three';
   function inBounds(x, y, z) {
     if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return false;
     if (z == null) return true;
+    if (z < 0 || z >= GRID_D) return false;
     const h = state.map.height[y][x];
     return Math.abs(z - h) <= 1;
   }
@@ -269,14 +271,16 @@ import * as THREE from 'three';
     const w = m[3] * wx + m[7] * wy + m[11] * wz + m[15];
     return { sx: sx / w, sy: sy / w };
   }
-  function isWall(x, y) {
-    return state.map.grid[y][x] === 1;
+  function isWall(x, y, z) {
+    return state.map.grid[z][y][x] === 1;
   }
-  function isSpawner(x, y) {
-    return state.map.spawners.some((s) => s.x === x && s.y === y);
+  function isSpawner(x, y, z) {
+    return state.map.spawners.some((s) => s.x === x && s.y === y && s.z === z);
   }
-  function isChest(x, y) {
-    return state.map.chests.some((c) => !c.opened && c.x === x && c.y === y);
+  function isChest(x, y, z) {
+    return state.map.chests.some(
+      (c) => !c.opened && c.x === x && c.y === y && c.z === z,
+    );
   }
   function isStart(x, y) {
     return state.map.start.x === x && state.map.start.y === y;
@@ -320,8 +324,15 @@ import * as THREE from 'three';
     let x = a.x + sx,
       y = a.y + sy;
     while (x !== b.x || y !== b.y) {
-      if (isWall(x, y)) return false;
-      if (sx && sy && isWall(x - sx, y) && isWall(x, y - sy)) return false;
+      const z = state.map.height[y][x];
+      if (isWall(x, y, z)) return false;
+      if (
+        sx &&
+        sy &&
+        isWall(x - sx, y, state.map.height[y][x - sx]) &&
+        isWall(x, y - sy, state.map.height[y - sy][x])
+      )
+        return false;
       x += sx;
       y += sy;
     }
@@ -354,7 +365,8 @@ import * as THREE from 'three';
     terrainGroup.clear();
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        const color = isWall(x, y) ? COLORS.wall : COLORS.floor;
+        const z = state.map.height[y][x];
+        const color = isWall(x, y, z) ? COLORS.wall : COLORS.floor;
         const geo = new THREE.PlaneGeometry(1, 1);
         const mat = new THREE.MeshBasicMaterial({
           color: new THREE.Color(color),
@@ -932,8 +944,13 @@ import * as THREE from 'three';
         const nz = state.map.height[ny][nx];
         if (!inBounds(nx, ny, nz)) continue;
         if (Math.abs(nz - curZ) > 1) continue;
-        if (isWall(nx, ny)) continue;
-        if (dx && dy && isWall(cur.x + dx, cur.y) && isWall(cur.x, cur.y + dy))
+        if (isWall(nx, ny, nz)) continue;
+        if (
+          dx &&
+          dy &&
+          isWall(cur.x + dx, cur.y, state.map.height[cur.y][cur.x + dx]) &&
+          isWall(cur.x, cur.y + dy, state.map.height[cur.y + dy][cur.x])
+        )
           continue;
         if (d < dist[ny][nx]) {
           dist[ny][nx] = d;
@@ -964,9 +981,15 @@ import * as THREE from 'three';
           ty = ny + dy;
         if (!inBounds(tx, ty)) break;
         const tz = state.map.height[ty][tx];
-        if (!inBounds(tx, ty, tz) || isWall(tx, ty)) break;
+        if (!inBounds(tx, ty, tz) || isWall(tx, ty, tz)) break;
         if (Math.abs(tz - nz) > 1) break;
-        if (dx && dy && isWall(nx + dx, ny) && isWall(nx, ny + dy)) break;
+        if (
+          dx &&
+          dy &&
+          isWall(nx + dx, ny, state.map.height[ny][nx + dx]) &&
+          isWall(nx, ny + dy, state.map.height[ny + dy][nx])
+        )
+          break;
         nx = tx;
         ny = ty;
         nz = tz;
@@ -991,13 +1014,21 @@ import * as THREE from 'three';
         ny = state.player.y + dy;
       if (!inBounds(nx, ny)) return;
       const nz = state.map.height[ny][nx];
-      if (!inBounds(nx, ny, nz) || isWall(nx, ny)) return;
+      if (!inBounds(nx, ny, nz) || isWall(nx, ny, nz)) return;
       if (Math.abs(nz - state.player.z) > 1) return;
       if (
         dx &&
         dy &&
-        isWall(state.player.x + dx, state.player.y) &&
-        isWall(state.player.x, state.player.y + dy)
+        isWall(
+          state.player.x + dx,
+          state.player.y,
+          state.map.height[state.player.y][state.player.x + dx],
+        ) &&
+        isWall(
+          state.player.x,
+          state.player.y + dy,
+          state.map.height[state.player.y + dy][state.player.x],
+        )
       )
         return;
       state.player.x = nx;
@@ -1057,11 +1088,11 @@ import * as THREE from 'three';
   function isValidPlacement(x, y) {
     const z = state.map.height[y][x];
     if (!inBounds(x, y, z)) return { ok: false, reason: 'out of bounds' };
-    if (isWall(x, y)) return { ok: false, reason: 'wall tile' };
+    if (isWall(x, y, z)) return { ok: false, reason: 'wall tile' };
     if (isStart(x, y) || isExit(x, y))
       return { ok: false, reason: 'reserved tile' };
-    if (isSpawner(x, y)) return { ok: false, reason: 'spawner tile' };
-    if (isChest(x, y)) return { ok: false, reason: 'chest tile' };
+    if (isSpawner(x, y, z)) return { ok: false, reason: 'spawner tile' };
+    if (isChest(x, y, z)) return { ok: false, reason: 'chest tile' };
     if (state.player.x === x && state.player.y === y && state.player.z === z)
       return { ok: false, reason: 'on player' };
     const dist = Math.max(
@@ -1263,13 +1294,13 @@ import * as THREE from 'three';
         const nz = state.map.height[ny][nx];
         if (!inBounds(nx, ny, nz)) continue;
         if (Math.abs(nz - curZ) > 1) continue;
-        if (!allowPhase && isWall(nx, ny)) continue;
+        if (!allowPhase && isWall(nx, ny, nz)) continue;
         if (
           dx &&
           dy &&
           !allowPhase &&
-          isWall(cur.x + dx, cur.y) &&
-          isWall(cur.x, cur.y + dy)
+          isWall(cur.x + dx, cur.y, state.map.height[cur.y][cur.x + dx]) &&
+          isWall(cur.x, cur.y + dy, state.map.height[cur.y + dy][cur.x])
         )
           continue;
         const nk = nx + ',' + ny;
@@ -1312,12 +1343,12 @@ import * as THREE from 'three';
       const tz = state.map.height[ty][tx];
       const bz = state.map.height[base.y][base.x];
       if (!inBounds(tx, ty, tz) || Math.abs(tz - bz) > 1) continue;
-      if (isWall(tx, ty)) continue;
+      if (isWall(tx, ty, tz)) continue;
       if (
         dx &&
         dy &&
-        isWall(base.x + dx, base.y) &&
-        isWall(base.x, base.y + dy)
+        isWall(base.x + dx, base.y, state.map.height[base.y][base.x + dx]) &&
+        isWall(base.x, base.y + dy, state.map.height[base.y + dy][base.x])
       )
         continue;
       const key = tx + ',' + ty;
@@ -1395,7 +1426,7 @@ import * as THREE from 'three';
         ny = e.y + d[1];
       if (!inBounds(nx, ny)) continue;
       const nz = state.map.height[ny][nx];
-      if (!inBounds(nx, ny, nz) || isWall(nx, ny)) continue;
+      if (!inBounds(nx, ny, nz) || isWall(nx, ny, nz)) continue;
       if (Math.abs(nz - e.z) > 1) continue;
       const nk = nx + ',' + ny;
       if (occupied.has(nk)) continue;
@@ -1438,7 +1469,7 @@ import * as THREE from 'three';
       if (!inBounds(px, py));
       else {
         const pz = state.map.height[py][px];
-        if (inBounds(px, py, pz) && !isWall(px, py))
+        if (inBounds(px, py, pz) && !isWall(px, py, pz))
           base = { x: px, y: py, z: pz };
       }
     }
