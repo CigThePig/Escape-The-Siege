@@ -43,7 +43,6 @@ import {
 } from './constants.js';
 import './ui.js';
 import { buildMap } from './map.js';
-import './enemies.js';
 import * as THREE from './lib/three.module.js';
 
 (() => {
