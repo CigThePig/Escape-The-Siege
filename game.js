@@ -257,6 +257,9 @@ import * as THREE from './lib/three.module.js';
       const mat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(color),
       });
+      mat.polygonOffset = true;
+      mat.polygonOffsetFactor = -1;
+      mat.polygonOffsetUnits = -1;
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(
         node.x + node.size / 2,
