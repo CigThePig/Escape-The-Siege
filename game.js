@@ -81,6 +81,33 @@ import * as THREE from './lib/three.module.js';
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
   dirLight.position.set(0, 0, 10);
   scene.add(dirLight);
+  // DEBUG: temporary rotating camera for height checks
+  const DEBUG_CAMERA_ENABLED = true;
+  let debugCamera = null;
+  let debugCamAngle = 0;
+  let useDebugCamera = false;
+  if (DEBUG_CAMERA_ENABLED) {
+    debugCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+    const label = document.createElement('label');
+    Object.assign(label.style, {
+      position: 'absolute',
+      top: '10px',
+      left: '10px',
+      zIndex: 1000,
+      background: '#fff',
+      padding: '4px',
+      borderRadius: '4px',
+      fontSize: '12px',
+      userSelect: 'none',
+    });
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    label.append(toggle, document.createTextNode(' Orbit Cam'));
+    document.body.appendChild(label);
+    toggle.addEventListener('change', () => {
+      useDebugCamera = toggle.checked;
+    });
+  }
   const terrainGroup = new THREE.Group();
   scene.add(terrainGroup);
   let playerMesh = null;
@@ -658,6 +685,20 @@ import * as THREE from './lib/three.module.js';
     const camY = Math.min(Math.max(py, half), GRID_H - half);
     camera.position.set(camX, camY, 10);
     camera.lookAt(camX, camY, 0);
+    if (useDebugCamera) {
+      const pz = state.player.z + 0.5;
+      const r = 20;
+      const h = 10;
+      debugCamAngle += 0.01;
+      debugCamera.aspect = rect.width / rect.height;
+      debugCamera.updateProjectionMatrix();
+      debugCamera.position.set(
+        px + Math.cos(debugCamAngle) * r,
+        py + Math.sin(debugCamAngle) * r,
+        pz + h,
+      );
+      debugCamera.lookAt(px, py, pz);
+    }
     if (!terrainValid) drawTerrainAll();
     drawPlayer();
     const active = new Set();
@@ -679,7 +720,7 @@ import * as THREE from './lib/three.module.js';
     drawDrops();
     drawEffects();
     if (state.placeMode) highlightPlacementArea();
-    renderer.render(scene, camera);
+    renderer.render(scene, useDebugCamera ? debugCamera : camera);
   }
   window.addEventListener('resize', () => {
     terrainValid = false;
