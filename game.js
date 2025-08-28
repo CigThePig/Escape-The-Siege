@@ -262,7 +262,7 @@ import * as THREE from './lib/three.module.js';
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         const gz = state.map.height[y][x];
-        const z = gz - state.map.baseZ;
+        const z = Math.max(0, gz - state.map.baseZ);
         let mesh;
         if (isWall(x, y, gz)) {
           mesh = new THREE.Mesh(wallGeo, wallMat);
