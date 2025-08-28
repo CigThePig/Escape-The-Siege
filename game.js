@@ -50,7 +50,7 @@ import * as THREE from './lib/three.module.js';
     tilePad = 0,
     animT = 0;
   let terrainValid = false;
-  let state;
+  const state = {};
 
   const canvas = document.getElementById('game');
   const renderer = new THREE.WebGLRenderer({ canvas });
@@ -1590,7 +1590,8 @@ import * as THREE from './lib/three.module.js';
   }
   function resetState() {
     const map = buildMap();
-    state = {
+    Object.keys(state).forEach((k) => delete state[k]);
+    Object.assign(state, {
       map,
       turn: 0,
       hp: START_HP,
@@ -1625,7 +1626,7 @@ import * as THREE from './lib/three.module.js';
       spikePlaced: false,
       enemyCap: ENEMY_CAP,
       exitWarned: false,
-    };
+    });
     state.visited[state.player.y][state.player.x] = true;
     clearLog();
     logMsg('v2.9.7: trap icons, ammo meters, and fire totem AoE indicator.');
