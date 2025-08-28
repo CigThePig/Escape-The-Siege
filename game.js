@@ -219,7 +219,7 @@ import * as THREE from './lib/three.module.js';
 
     // shared geometry and materials for floors and walls
     const floorGeo = new THREE.PlaneGeometry(1, 1);
-    // floorGeo.rotateX(-Math.PI / 2);
+    floorGeo.rotateX(-Math.PI / 2);
     const floorMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(COLORS.floor),
     });
@@ -253,6 +253,7 @@ import * as THREE from './lib/three.module.js';
           ? COLORS.nodeCapturing
           : COLORS.nodeIdle;
       const geo = new THREE.CircleGeometry(node.size / 2, 16);
+      geo.rotateX(-Math.PI / 2);
       const mat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(color),
       });
