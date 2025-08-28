@@ -253,6 +253,7 @@ import * as THREE from './lib/three.module.js';
     const floorMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(COLORS.floor),
     });
+    const floorZ = 0.01;
     const wallGeo = new THREE.BoxGeometry(1, 1, 1);
     wallGeo.rotateX(-Math.PI / 2);
     const wallMat = new THREE.MeshBasicMaterial({
@@ -270,7 +271,7 @@ import * as THREE from './lib/three.module.js';
           mesh.position.set(x + 0.5, y + 0.5, (z + 1) / 2);
         } else {
           mesh = new THREE.Mesh(floorGeo, floorMat);
-          mesh.position.set(x + 0.5, y + 0.5, z);
+          mesh.position.set(x + 0.5, y + 0.5, floorZ);
         }
         terrainGroup.add(mesh);
       }
