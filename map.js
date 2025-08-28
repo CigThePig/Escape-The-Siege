@@ -260,11 +260,13 @@ export function buildMap() {
   }
 
   const height = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(0));
+  let baseZ = GRID_D;
   for (let y = 0; y < GRID_H; y++)
     for (let x = 0; x < GRID_W; x++)
       for (let z = GRID_D - 1; z >= 0; z--)
         if (grid[z][y][x] === 0) {
           height[y][x] = z;
+          if (z < baseZ) baseZ = z;
           break;
         }
   start.z = height[start.y][start.x];
@@ -363,5 +365,5 @@ export function buildMap() {
     }
     chests.push({ x: p.x, y: p.y, z: p.z, opened: false });
   }
-  return { grid, height, start, exit, spawners, chests, nodes };
+  return { grid, height, start, exit, spawners, chests, nodes, baseZ };
 }

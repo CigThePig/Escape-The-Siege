@@ -147,7 +147,11 @@ import * as THREE from './lib/three.module.js';
     return a.x === b.x && a.y === b.y && a.z === b.z;
   }
   function projectToScreen(x, y, z = 0) {
-    const v = new THREE.Vector3(x + 0.5, y + 0.5, z).project(camera);
+    const v = new THREE.Vector3(
+      x + 0.5,
+      y + 0.5,
+      z - state.map.baseZ,
+    ).project(camera);
     const width = overlayCanvas.width / dpr;
     const height = overlayCanvas.height / dpr;
     return {
@@ -257,9 +261,10 @@ import * as THREE from './lib/three.module.js';
 
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        const z = state.map.height[y][x];
+        const gz = state.map.height[y][x];
+        const z = gz - state.map.baseZ;
         let mesh;
-        if (isWall(x, y, z)) {
+        if (isWall(x, y, gz)) {
           mesh = new THREE.Mesh(wallGeo, wallMat);
           mesh.scale.z = z + 1;
           mesh.position.set(x + 0.5, y + 0.5, (z + 1) / 2);
@@ -289,7 +294,7 @@ import * as THREE from './lib/three.module.js';
       mesh.position.set(
         node.x + node.size / 2,
         node.y + node.size / 2,
-        node.z + 0.01,
+        node.z - state.map.baseZ + 0.1,
       );
       terrainGroup.add(mesh);
     }
@@ -628,7 +633,7 @@ import * as THREE from './lib/three.module.js';
     playerMesh.position.set(
       state.player.x + 0.5,
       state.player.y + 0.5,
-      state.player.z + bob + 0.2,
+      state.player.z - state.map.baseZ + bob + 0.2,
     );
   }
   function drawEnemy(e) {
@@ -666,7 +671,11 @@ import * as THREE from './lib/three.module.js';
       enemyMeshes.set(e, mesh);
       scene.add(mesh);
     }
-    mesh.position.set(e.x + 0.5, e.y + 0.5, e.z + bob + 0.2);
+    mesh.position.set(
+      e.x + 0.5,
+      e.y + 0.5,
+      e.z - state.map.baseZ + bob + 0.2,
+    );
   }
   function draw() {
     const rect = canvas.getBoundingClientRect();
@@ -684,7 +693,7 @@ import * as THREE from './lib/three.module.js';
     camera.position.set(camX, camY, 10);
     camera.lookAt(camX, camY, 0);
     if (useDebugCamera) {
-      const pz = state.player.z + 0.5;
+      const pz = state.player.z - state.map.baseZ + 0.5;
       const r = 20;
       const h = 10;
       debugCamAngle += 0.01;
