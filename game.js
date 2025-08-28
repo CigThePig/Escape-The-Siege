@@ -694,6 +694,7 @@ import * as THREE from './lib/three.module.js';
     const INF = 1e9;
     const dist = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(INF));
     const q = [];
+    let qHead = 0; // queue head index for O(1) dequeues
     const start = { x: state.player.x, y: state.player.y };
     dist[start.y][start.x] = 0;
     q.push(start);
@@ -707,8 +708,8 @@ import * as THREE from './lib/three.module.js';
       [-1, 1],
       [-1, -1],
     ];
-    while (q.length) {
-      const cur = q.shift();
+    while (qHead < q.length) {
+      const cur = q[qHead++];
       const curZ = state.map.height[cur.y][cur.x];
       const d = dist[cur.y][cur.x] + 1;
       for (let i = 0; i < dirs.length; i++) {
