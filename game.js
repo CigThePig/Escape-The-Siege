@@ -153,15 +153,6 @@ import * as THREE from './lib/three.module.js';
       y < node.y + node.size
     );
   }
-  function logMsg(m) {
-    const p = document.createElement('p');
-    p.textContent = m;
-    hud.log.appendChild(p);
-    hud.log.scrollTop = hud.log.scrollHeight;
-  }
-  function clearLog() {
-    hud.log.innerHTML = '';
-  }
   function rndShuffle(a) {
     for (let i = a.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
