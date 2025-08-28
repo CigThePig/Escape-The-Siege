@@ -10,7 +10,15 @@ import * as THREE from './lib/three.module.js';
 export function initUI(
   canvas,
   state,
-  { projectToScreen, playerMove, tryPlace, isValidPlacement, resetState, getTileSize, camera },
+  {
+    projectToScreen,
+    playerMove,
+    tryPlace,
+    isValidPlacement,
+    resetState,
+    getTileSize,
+    camera,
+  },
 ) {
   const hud = {
     hp: document.getElementById('hud-hp'),
@@ -76,7 +84,8 @@ export function initUI(
 
   function setActiveTrap(id) {
     state.selectedTool = id;
-    for (const k in trapEls) trapEls[k].btn.classList.toggle('active', k === id);
+    for (const k in trapEls)
+      trapEls[k].btn.classList.toggle('active', k === id);
     updateMana(state.mana);
     drawPlacementPreview();
   }
@@ -211,21 +220,22 @@ export function initUI(
     }
     const nx = (Math.max(0, Math.min(rect.width - 1, x)) / rect.width) * 2 - 1;
     const ny = -(
-      (Math.max(0, Math.min(rect.height - 1, y)) / rect.height) * 2 - 1
+      (Math.max(0, Math.min(rect.height - 1, y)) / rect.height) * 2 -
+      1
     );
     const v = new THREE.Vector3(nx, ny, 0).unproject(camera);
     return { x: Math.floor(v.x), y: Math.floor(v.y) };
   }
 
   const DIR_MAP = {
-    up: [0, -1],
-    down: [0, 1],
+    up: [0, 1],
+    down: [0, -1],
     left: [-1, 0],
     right: [1, 0],
-    'up-left': [-1, -1],
-    'up-right': [1, -1],
-    'down-left': [-1, 1],
-    'down-right': [1, 1],
+    'up-left': [-1, 1],
+    'up-right': [1, 1],
+    'down-left': [-1, -1],
+    'down-right': [1, -1],
   };
 
   function onMove(dir) {
@@ -237,8 +247,8 @@ export function initUI(
   document.addEventListener('keydown', (e) => {
     if (state.won || state.lost || state.placeMode) return;
     const key = e.key.toLowerCase();
-    if (['arrowup', 'w'].includes(key)) playerMove(0, -1, e.shiftKey);
-    else if (['arrowdown', 's'].includes(key)) playerMove(0, 1, e.shiftKey);
+    if (['arrowup', 'w'].includes(key)) playerMove(0, 1, e.shiftKey);
+    else if (['arrowdown', 's'].includes(key)) playerMove(0, -1, e.shiftKey);
     else if (['arrowleft', 'a'].includes(key)) playerMove(-1, 0, e.shiftKey);
     else if (['arrowright', 'd'].includes(key)) playerMove(1, 0, e.shiftKey);
     else if (key === 'q') toggleDashArm();
