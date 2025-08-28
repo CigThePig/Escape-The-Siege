@@ -171,6 +171,7 @@ function dist1(a, b) {
 }
 export function pathExists(grid, start, goal) {
   const q = [start];
+  let qi = 0;
   const seen = new Set([start.x + ',' + start.y + ',' + start.z]);
   const dirs = [
     [1, 0, 0],
@@ -180,8 +181,8 @@ export function pathExists(grid, start, goal) {
     [0, 0, 1],
     [0, 0, -1],
   ];
-  while (q.length) {
-    const cur = q.shift();
+  while (qi < q.length) {
+    const cur = q[qi++];
     if (cur.x === goal.x && cur.y === goal.y && cur.z === goal.z) return true;
     for (let i = 0; i < dirs.length; i++) {
       const nx = cur.x + dirs[i][0],
